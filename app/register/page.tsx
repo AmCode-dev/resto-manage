@@ -8,15 +8,20 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Eye, EyeOff, Loader2, CheckCircle } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
+import { suggestCargoFromEmail } from "@/lib/auth-utils"
 import Link from "next/link"
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
+  const [nombre, setNombre] = useState("")
+  const [cargo, setCargo] = useState("")
+  const [telefono, setTelefono] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -39,8 +44,8 @@ export default function RegisterPage() {
     setSuccess(false)
 
     // Validaciones
-    if (!email || !password || !confirmPassword) {
-      setError("Por favor complete todos los campos")
+    if (!email || !password || !confirmPassword || !nombre) {
+      setError("Por favor complete los campos obligatorios")
       setLoading(false)
       return
     }
@@ -64,36 +69,50 @@ export default function RegisterPage() {
     }
 
     try {
-      const { error } = await signUp(email, password)
+      await signUp(email, password, {
+        nombre,
+        cargo: cargo || undefined,
+        telefono: telefono || undefined,
+      })
 
-      if (error) {
-        console.error("Register error:", error)
-
-        // Manejar diferentes tipos de errores
-        if (error.message?.includes("User already registered")) {
-          setError("Este email ya está registrado. Intenta iniciar sesión")
-        } else if (error.message?.includes("Password should be at least")) {
-          setError("La contraseña debe tener al menos 6 caracteres")
-        } else if (error.message?.includes("Unable to validate email")) {
-          setError("Email inválido")
-        } else {
-          setError(error.message || "Error al crear la cuenta")
-        }
-      } else {
-        setSuccess(true)
-        console.log("Registration successful")
-      }
-    } catch (error) {
+      setSuccess(true)
+      console.log("Registration successful")
+    } catch (error: any) {
       console.error("Register exception:", error)
-      setError("Error inesperado al crear la cuenta")
+      
+      // Manejar diferentes tipos de errores
+      if (error.message?.includes("User already registered")) {
+        setError("Este email ya está registrado. Intenta iniciar sesión")
+      } else if (error.message?.includes("Password should be at least")) {
+        setError("La contraseña debe tener al menos 6 caracteres")
+      } else if (error.message?.includes("Unable to validate email")) {
+        setError("Email inválido")
+      } else {
+        setError(error.message || "Error al crear la cuenta")
+      }
     } finally {
       setLoading(false)
     }
   }
 
+  // Sugerir cargo basado en email
+  useEffect(() => {
+    if (email && !cargo) {
+      const suggestedCargo = suggestCargoFromEmail(email)
+      if (suggestedCargo !== 'Empleado') {
+        setCargo(suggestedCargo)
+      }
+    }
+  }, [email, cargo])
+
   // Limpiar errores cuando el usuario empiece a escribir
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setEmail(e.target.value)
+    if (error) setError("")
+  }
+
+  const handleNombreChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNombre(e.target.value)
     if (error) setError("")
   }
 
@@ -104,6 +123,11 @@ export default function RegisterPage() {
 
   const handleConfirmPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setConfirmPassword(e.target.value)
+    if (error) setError("")
+  }
+
+  const handleTelefonoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setTelefono(e.target.value)
     if (error) setError("")
   }
 
@@ -124,6 +148,8 @@ export default function RegisterPage() {
             <Alert>
               <AlertDescription>
                 Por favor revisa tu bandeja de entrada y haz clic en el enlace de confirmación para activar tu cuenta.
+                Una vez confirmado, podrás acceder al sistema y se creará automáticamente tu perfil de empleado
+                si existe un restaurante con tu dominio de email.
               </AlertDescription>
             </Alert>
 
@@ -145,7 +171,10 @@ export default function RegisterPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">Crear Cuenta</CardTitle>
-          <CardDescription className="text-center">Regístrate en Resto Manage</CardDescription>
+          <CardDescription className="text-center">
+            Regístrate en RestoManage como empleado. Si ya existe un restaurante con tu dominio de email, 
+            serás asociado automáticamente.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -156,7 +185,20 @@ export default function RegisterPage() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="nombre">Nombre Completo *</Label>
+              <Input
+                id="nombre"
+                type="text"
+                placeholder="Tu nombre completo"
+                value={nombre}
+                onChange={handleNombreChange}
+                disabled={loading}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email">Email *</Label>
               <Input
                 id="email"
                 type="email"
@@ -166,6 +208,38 @@ export default function RegisterPage() {
                 disabled={loading}
                 autoComplete="email"
                 required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="cargo">Cargo en el Restaurante</Label>
+              <Select value={cargo} onValueChange={setCargo}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona tu cargo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Propietario">Propietario</SelectItem>
+                  <SelectItem value="Gerente">Gerente</SelectItem>
+                  <SelectItem value="Chef">Chef</SelectItem>
+                  <SelectItem value="Cajero">Cajero</SelectItem>
+                  <SelectItem value="Mesero">Mesero</SelectItem>
+                  <SelectItem value="Empleado">Empleado</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-500">
+                Esto nos ayuda a configurar tus permisos automáticamente
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="telefono">Teléfono</Label>
+              <Input
+                id="telefono"
+                type="tel"
+                placeholder="+1234567890"
+                value={telefono}
+                onChange={handleTelefonoChange}
+                disabled={loading}
               />
             </div>
 
