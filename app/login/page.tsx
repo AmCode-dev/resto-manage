@@ -61,42 +61,17 @@ export default function LoginPage() {
         if (error.message.includes("Invalid login credentials")) {
           errorMessage = "Email o contraseña incorrectos"
         } else if (error.message.includes("Email not confirmed")) {
-          errorMessage = "Por favor confirma tu email antes de iniciar sesión"
+          errorMessage = "Por favor confirma tu email antes de iniciar sesión. Revisa tu bandeja de entrada."
         } else if (error.message.includes("Too many requests")) {
           errorMessage = "Demasiados intentos. Intenta de nuevo más tarde"
+        } else if (error.message.includes("User not found")) {
+          errorMessage = "No existe una cuenta con este email. ¿Necesitas registrarte?"
         } else {
           errorMessage = error.message
         }
       }
 
       setError(errorMessage)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Función para login de desarrollo
-  const handleDevLogin = async () => {
-    setError("")
-    setLoading(true)
-
-    try {
-      // Simular login de desarrollo
-      const mockUser = {
-        id: "mock-user-id",
-        email: "admin@demo.com",
-        created_at: "2024-01-01T00:00:00Z",
-        updated_at: "2024-01-01T00:00:00Z",
-      }
-
-      // Simular delay de red
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
-      // Redirigir al dashboard
-      router.push("/dashboard")
-    } catch (error) {
-      console.error("Dev login error:", error)
-      setError("Error en login de desarrollo")
     } finally {
       setLoading(false)
     }
@@ -202,20 +177,6 @@ export default function LoginPage() {
               )}
             </Button>
           </form>
-
-          {/* Botón de desarrollo */}
-          <div className="mt-4 pt-4 border-t border-gray-200">
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full border-orange-200 text-orange-600 hover:bg-orange-50 bg-transparent"
-              onClick={handleDevLogin}
-              disabled={loading}
-            >
-              🚀 Acceso de Desarrollo
-            </Button>
-            <p className="text-xs text-gray-500 text-center mt-2">Para pruebas y desarrollo del sistema</p>
-          </div>
         </CardContent>
         <CardFooter>
           <div className="text-center text-sm text-gray-600 w-full">
