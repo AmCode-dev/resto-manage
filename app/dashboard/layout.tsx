@@ -2,20 +2,25 @@
 
 import type React from "react"
 
-import { Sidebar } from "@/components/dashboard/sidebar"
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
+import { AppSidebar } from "@/components/dashboard/sidebar"
 import { Header } from "@/components/dashboard/header"
-import { useState } from "react"
+import { AuthGuard } from "@/components/auth/auth-guard"
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   return (
-    <div className="flex min-h-screen flex-col">
-      <Header onOpenSidebar={() => setSidebarOpen(true)} />
-      <div className="flex flex-1">
-        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-        <main className="flex-1 p-4 md:p-6">{children}</main>
-      </div>
-    </div>
+    <AuthGuard>
+      <SidebarProvider>
+        <AppSidebar />
+        <SidebarInset>
+          <Header />
+          <main className="flex-1 overflow-auto p-4">{children}</main>
+        </SidebarInset>
+      </SidebarProvider>
+    </AuthGuard>
   )
 }

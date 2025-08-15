@@ -1,249 +1,247 @@
 "use client"
 
-import type React from "react"
-
-import { useState, useEffect } from "react"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
-  LayoutDashboard,
+  Home,
   Users,
-  CreditCard,
+  Package,
+  ShoppingCart,
+  Calendar,
   Settings,
-  Utensils,
   ChefHat,
   Wine,
-  CalendarDays,
-  BarChart3,
-  Map,
-  ShoppingBag,
-  Coffee,
-  Store,
-  LogOut,
-  Menu,
-  X,
-  Gift,
+  CreditCard,
+  Activity,
   Bell,
+  MapPin,
+  BarChart3,
 } from "lucide-react"
+import { usePathname } from "next/navigation"
+import Link from "next/link"
 
-interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
-  isOpen: boolean
-  onClose: () => void
-}
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarHeader,
+  SidebarFooter,
+} from "@/components/ui/sidebar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { useAuth } from "@/hooks/use-auth"
 
-export function Sidebar({ isOpen, onClose, className, ...props }: SidebarProps) {
+const menuItems = [
+  {
+    title: "Dashboard",
+    url: "/dashboard",
+    icon: Home,
+  },
+  {
+    title: "Punto de Venta",
+    url: "/dashboard/pos",
+    icon: CreditCard,
+  },
+  {
+    title: "Pedidos",
+    url: "/dashboard/pedidos",
+    icon: ShoppingCart,
+  },
+  {
+    title: "Reservas",
+    url: "/dashboard/reservas",
+    icon: Calendar,
+  },
+  {
+    title: "Espacio",
+    url: "/dashboard/espacio",
+    icon: MapPin,
+  },
+]
+
+const inventoryItems = [
+  {
+    title: "Inventario Comidas",
+    url: "/dashboard/inventario-comidas",
+    icon: Package,
+  },
+  {
+    title: "Inventario Bebidas",
+    url: "/dashboard/inventario-bebidas",
+    icon: Wine,
+  },
+  {
+    title: "Menús",
+    url: "/dashboard/menus",
+    icon: ChefHat,
+  },
+]
+
+const managementItems = [
+  {
+    title: "Empleados",
+    url: "/dashboard/empleados",
+    icon: Users,
+  },
+  {
+    title: "Clientes",
+    url: "/dashboard/clientes",
+    icon: Users,
+  },
+  {
+    title: "Finanzas",
+    url: "/dashboard/finanzas",
+    icon: BarChart3,
+  },
+  {
+    title: "Actividad",
+    url: "/dashboard/actividad",
+    icon: Activity,
+  },
+]
+
+const kitchenItems = [
+  {
+    title: "Bartending",
+    url: "/dashboard/bartending",
+    icon: Wine,
+  },
+]
+
+const systemItems = [
+  {
+    title: "Notificaciones",
+    url: "/dashboard/notificaciones",
+    icon: Bell,
+  },
+  {
+    title: "Configuración",
+    url: "/dashboard/configuracion",
+    icon: Settings,
+  },
+]
+
+export function AppSidebar() {
   const pathname = usePathname()
-  const [isMobile, setIsMobile] = useState(false)
-
-  // Detectar si es móvil
-  useEffect(() => {
-    const checkIfMobile = () => {
-      setIsMobile(window.innerWidth < 768)
-    }
-
-    checkIfMobile()
-    window.addEventListener("resize", checkIfMobile)
-
-    return () => {
-      window.removeEventListener("resize", checkIfMobile)
-    }
-  }, [])
-
-  // Cerrar sidebar en móvil cuando cambia la ruta
-  useEffect(() => {
-    if (isMobile) {
-      onClose()
-    }
-  }, [pathname, isMobile, onClose])
+  const { empleado } = useAuth()
 
   return (
-    <>
-      {/* Overlay para móvil */}
-      {isMobile && isOpen && <div className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm" onClick={onClose} />}
-
-      {/* Sidebar */}
-      <div
-        className={`fixed top-0 bottom-0 left-0 z-50 flex w-64 flex-col border-r bg-card p-4 transition-transform duration-200 md:static md:z-0 ${
-          isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
-        } ${className}`}
-        {...props}
-      >
-        <div className="flex items-center justify-between">
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <Store className="h-6 w-6" />
-            <span className="text-xl font-bold">RestoManage</span>
-          </Link>
-          {isMobile && (
-            <Button variant="ghost" size="icon" onClick={onClose}>
-              <X className="h-5 w-5" />
-            </Button>
-          )}
-        </div>
-
-        <div className="mt-6 flex items-center gap-3">
-          <Avatar>
-            <AvatarImage src="/placeholder.svg?height=32&width=32" alt="Avatar" />
-            <AvatarFallback>AD</AvatarFallback>
+    <Sidebar>
+      <SidebarHeader className="p-4">
+        <div className="flex items-center gap-3">
+          <Avatar className="h-8 w-8">
+            <AvatarImage src="/placeholder-user.jpg" />
+            <AvatarFallback>
+              {empleado?.nombre?.[0]}
+              {empleado?.apellido?.[0]}
+            </AvatarFallback>
           </Avatar>
-          <div>
-            <p className="text-sm font-medium">Admin User</p>
-            <p className="text-xs text-muted-foreground">admin@example.com</p>
+          <div className="flex flex-col">
+            <span className="text-sm font-medium">
+              {empleado?.nombre} {empleado?.apellido}
+            </span>
+            <span className="text-xs text-muted-foreground">{empleado?.cargo}</span>
           </div>
         </div>
+      </SidebarHeader>
 
-        <ScrollArea className="flex-1 py-4">
-          <nav className="flex flex-col gap-1">
-            <Link href="/dashboard">
-              <Button variant={pathname === "/dashboard" ? "default" : "ghost"} className="w-full justify-start">
-                <LayoutDashboard className="mr-2 h-4 w-4" />
-                Dashboard
-              </Button>
-            </Link>
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>Principal</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {menuItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild isActive={pathname === item.url}>
+                    <Link href={item.url}>
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
-            <Link href="/dashboard/empleados">
-              <Button
-                variant={pathname === "/dashboard/empleados" ? "default" : "ghost"}
-                className="w-full justify-start"
-              >
-                <Users className="mr-2 h-4 w-4" />
-                Empleados
-              </Button>
-            </Link>
+        <SidebarGroup>
+          <SidebarGroupLabel>Inventario</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {inventoryItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild isActive={pathname === item.url}>
+                    <Link href={item.url}>
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
-            <Link href="/dashboard/clientes">
-              <Button
-                variant={pathname === "/dashboard/clientes" ? "default" : "ghost"}
-                className="w-full justify-start"
-              >
-                <Gift className="mr-2 h-4 w-4" />
-                Fidelización
-              </Button>
-            </Link>
+        <SidebarGroup>
+          <SidebarGroupLabel>Gestión</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {managementItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild isActive={pathname === item.url}>
+                    <Link href={item.url}>
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
-            <Link href="/dashboard/menus">
-              <Button variant={pathname === "/dashboard/menus" ? "default" : "ghost"} className="w-full justify-start">
-                <Utensils className="mr-2 h-4 w-4" />
-                Menús
-              </Button>
-            </Link>
+        <SidebarGroup>
+          <SidebarGroupLabel>Cocina</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {kitchenItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild isActive={pathname === item.url}>
+                    <Link href={item.url}>
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
-            <Link href="/dashboard/pedidos">
-              <Button
-                variant={pathname === "/dashboard/pedidos" ? "default" : "ghost"}
-                className="w-full justify-start"
-              >
-                <ShoppingBag className="mr-2 h-4 w-4" />
-                Pedidos
-              </Button>
-            </Link>
+        <SidebarGroup>
+          <SidebarGroupLabel>Sistema</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {systemItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild isActive={pathname === item.url}>
+                    <Link href={item.url}>
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
 
-            <Link href="/dashboard/pos">
-              <Button variant={pathname === "/dashboard/pos" ? "default" : "ghost"} className="w-full justify-start">
-                <CreditCard className="mr-2 h-4 w-4" />
-                Punto de Venta
-              </Button>
-            </Link>
-
-            <Link href="/dashboard/inventario-comidas">
-              <Button
-                variant={pathname === "/dashboard/inventario-comidas" ? "default" : "ghost"}
-                className="w-full justify-start"
-              >
-                <ChefHat className="mr-2 h-4 w-4" />
-                Inventario Comidas
-              </Button>
-            </Link>
-
-            <Link href="/dashboard/inventario-bebidas">
-              <Button
-                variant={pathname === "/dashboard/inventario-bebidas" ? "default" : "ghost"}
-                className="w-full justify-start"
-              >
-                <Wine className="mr-2 h-4 w-4" />
-                Inventario Bebidas
-              </Button>
-            </Link>
-
-            <Link href="/dashboard/bartending">
-              <Button
-                variant={pathname === "/dashboard/bartending" ? "default" : "ghost"}
-                className="w-full justify-start"
-              >
-                <Coffee className="mr-2 h-4 w-4" />
-                Bartending
-              </Button>
-            </Link>
-
-            <Link href="/dashboard/reservas">
-              <Button
-                variant={pathname === "/dashboard/reservas" ? "default" : "ghost"}
-                className="w-full justify-start"
-              >
-                <CalendarDays className="mr-2 h-4 w-4" />
-                Reservas
-              </Button>
-            </Link>
-
-            <Link href="/dashboard/notificaciones">
-              <Button
-                variant={pathname === "/dashboard/notificaciones" ? "default" : "ghost"}
-                className="w-full justify-start"
-              >
-                <Bell className="mr-2 h-4 w-4" />
-                Notificaciones
-              </Button>
-            </Link>
-
-            <Link href="/dashboard/finanzas">
-              <Button
-                variant={pathname === "/dashboard/finanzas" ? "default" : "ghost"}
-                className="w-full justify-start"
-              >
-                <BarChart3 className="mr-2 h-4 w-4" />
-                Finanzas
-              </Button>
-            </Link>
-
-            <Link href="/dashboard/espacio">
-              <Button
-                variant={pathname === "/dashboard/espacio" ? "default" : "ghost"}
-                className="w-full justify-start"
-              >
-                <Map className="mr-2 h-4 w-4" />
-                Espacio
-              </Button>
-            </Link>
-          </nav>
-        </ScrollArea>
-
-        <div className="mt-auto border-t pt-4">
-          <Link href="/dashboard/configuracion">
-            <Button
-              variant={pathname === "/dashboard/configuracion" ? "default" : "ghost"}
-              className="w-full justify-start"
-            >
-              <Settings className="mr-2 h-4 w-4" />
-              Configuración
-            </Button>
-          </Link>
-          <Button variant="ghost" className="w-full justify-start text-muted-foreground">
-            <LogOut className="mr-2 h-4 w-4" />
-            Cerrar Sesión
-          </Button>
-        </div>
-      </div>
-    </>
-  )
-}
-
-export function MobileMenuButton({ onClick }: { onClick: () => void }) {
-  return (
-    <Button variant="ghost" size="icon" onClick={onClick} className="md:hidden">
-      <Menu className="h-5 w-5" />
-      <span className="sr-only">Toggle Menu</span>
-    </Button>
+      <SidebarFooter className="p-4">
+        <div className="text-xs text-muted-foreground">Resto Manage Platform v1.0</div>
+      </SidebarFooter>
+    </Sidebar>
   )
 }

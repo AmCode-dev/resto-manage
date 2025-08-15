@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -20,9 +19,10 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Textarea } from "@/components/ui/textarea"
 import { format, parse } from "date-fns"
 import { es } from "date-fns/locale"
-import { CalendarIcon, Check, Edit, Plus, Search, Trash2, X } from "lucide-react"
+import { CalendarIcon, Check, Edit, Plus, Search, Trash2, X, Package, AlertTriangle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "@/components/ui/use-toast"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -36,76 +36,119 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-
-// Tipos
-interface Producto {
-  id: number
-  nombre: string
-  categoria: string
-  stock: number
-  unidad: string
-  precioUnidad: number
-  fechaCaducidad: string
-  estado: "Normal" | "Bajo" | "Agotado"
-  imagen?: string
-  descripcion?: string
-  proveedor?: string
-  ubicacion?: string
-  codigoBarras?: string
-  alertaStock?: number
-}
+import { useInventarioComidas } from "@/hooks/use-inventario-comidas"
+import { useRestaurantes } from "@/hooks/use-restaurantes"
+import type { InventarioComida, InventarioComidaInsert } from "@/hooks/use-inventario-comidas"
 
 // Constantes
-const CATEGORIAS = ["Carnes", "Verduras", "Lácteos", "Frutas", "Pescados", "Condimentos", "Granos", "Otros"]
+const CATEGORIAS = [
+  "Carnes",
+  "Verduras",
+  "Lácteos",
+  "Frutas",
+  "Pescados",
+  "Condimentos",
+  "Granos",
+  "Panadería",
+  "Otros",
+]
 const UNIDADES = ["kg", "g", "l", "ml", "unidad", "docena", "caja", "botella", "paquete"]
 
 export default function InventarioComidaPage() {
+  const { restauranteActual, loading: loadingRestaurante } = useRestaurantes()
+  const {
+    inventario,
+    loading,
+    error,
+    crearProducto,
+    actualizarProducto,
+    eliminarProducto,
+    obtenerEstadisticas,
+    buscarProductos,
+    obtenerCategorias,
+  } = useInventarioComidas()
+
   // Estados
-  const [productos, setProductos] = useState<Producto[]>(inventarioComidas)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [filtroCategoria, setFiltroCategoria] = useState("todos")
   const [busqueda, setBusqueda] = useState("")
-  const [productoAEliminar, setProductoAEliminar] = useState<Producto | null>(null)
-  const [productoEditando, setProductoEditando] = useState<Producto | null>(null)
-  const [nuevoProducto, setNuevoProducto] = useState<Partial<Producto>>({
+  const [productoAEliminar, setProductoAEliminar] = useState<InventarioComida | null>(null)
+  const [productoEditando, setProductoEditando] = useState<InventarioComida | null>(null)
+  const [nuevoProducto, setNuevoProducto] = useState<Partial<InventarioComidaInsert>>({
     nombre: "",
     categoria: "",
     stock: 0,
     unidad: "",
-    precioUnidad: 0,
-    fechaCaducidad: format(new Date(), "yyyy-MM-dd"),
-    estado: "Normal",
-    alertaStock: 5,
+    precio_unidad: 0,
+    fecha_caducidad: format(new Date(), "yyyy-MM-dd"),
+    alerta_stock: 5,
+    proveedor: "",
+    descripcion: "",
+    ubicacion: "",
+    codigo_barras: "",
   })
   const [fecha, setFecha] = useState<Date | undefined>(new Date())
   const [fechaEdicion, setFechaEdicion] = useState<Date | undefined>(new Date())
   const [errores, setErrores] = useState<Record<string, string>>({})
+  const [guardando, setGuardando] = useState(false)
 
-  // Filtrar productos por categoría y búsqueda
-  const productosFiltrados = productos.filter((producto) => {
-    const coincideBusqueda =
-      producto.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-      producto.categoria.toLowerCase().includes(busqueda.toLowerCase())
-
-    if (filtroCategoria === "todos") {
-      return coincideBusqueda
-    } else {
-      return producto.categoria === filtroCategoria && coincideBusqueda
-    }
-  })
-
-  // Resumen de inventario
-  const resumenInventario = {
-    total: productos.length,
-    bajos: productos.filter((p) => p.estado === "Bajo").length,
-    agotados: productos.filter((p) => p.estado === "Agotado").length,
-    valorTotal: productos.reduce((total, p) => total + p.precioUnidad * p.stock, 0),
+  // Si no hay restaurante configurado
+  if (loadingRestaurante) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <Package className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+          <p className="text-muted-foreground">Cargando...</p>
+        </div>
+      </div>
+    )
   }
 
+  if (!restauranteActual) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <AlertTriangle className="mx-auto h-12 w-12 text-yellow-500 mb-4" />
+          <h3 className="text-lg font-semibold mb-2">Restaurante no configurado</h3>
+          <p className="text-muted-foreground mb-4">
+            Necesitas configurar tu restaurante antes de gestionar el inventario.
+          </p>
+          <Button asChild>
+            <a href="/dashboard/configuracion">Configurar Restaurante</a>
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  // Filtrar productos
+  const productosFiltrados = (() => {
+    let productos = inventario
+
+    // Filtrar por búsqueda
+    if (busqueda.trim()) {
+      productos = buscarProductos(busqueda)
+    }
+
+    // Filtrar por categoría
+    if (filtroCategoria !== "todos") {
+      productos = productos.filter((p) => p.categoria === filtroCategoria)
+    }
+
+    return productos
+  })()
+
+  // Obtener estadísticas
+  const estadisticas = obtenerEstadisticas()
+
+  // Obtener categorías disponibles
+  const categoriasDisponibles = obtenerCategorias()
+  const todasLasCategorias = [...new Set([...CATEGORIAS, ...categoriasDisponibles])].sort()
+
   // Manejar cambios en el formulario de nuevo producto
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target
     const parsedValue = type === "number" ? (value === "" ? 0 : Number.parseFloat(value)) : value
 
@@ -123,7 +166,7 @@ export default function InventarioComidaPage() {
   }
 
   // Manejar cambios en el formulario de edición
-  const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     if (!productoEditando) return
 
     const { name, value, type } = e.target
@@ -143,7 +186,7 @@ export default function InventarioComidaPage() {
   }
 
   // Validar formulario
-  const validarFormulario = (producto: Partial<Producto>): boolean => {
+  const validarFormulario = (producto: Partial<InventarioComidaInsert>): boolean => {
     const nuevosErrores: Record<string, string> = {}
 
     if (!producto.nombre?.trim()) {
@@ -162,109 +205,110 @@ export default function InventarioComidaPage() {
       nuevosErrores.unidad = "Seleccione una unidad"
     }
 
-    if (producto.precioUnidad === undefined || producto.precioUnidad <= 0) {
-      nuevosErrores.precioUnidad = "Ingrese un precio válido"
-    }
-
-    if (!producto.fechaCaducidad) {
-      nuevosErrores.fechaCaducidad = "Seleccione una fecha"
+    if (producto.precio_unidad === undefined || producto.precio_unidad <= 0) {
+      nuevosErrores.precio_unidad = "Ingrese un precio válido"
     }
 
     setErrores(nuevosErrores)
     return Object.keys(nuevosErrores).length === 0
   }
 
-  // Determinar estado del producto
-  const determinarEstado = (stock: number, alertaStock?: number): "Normal" | "Bajo" | "Agotado" => {
-    if (stock === 0) return "Agotado"
-    if (alertaStock && stock <= alertaStock) return "Bajo"
-    return "Normal"
-  }
-
   // Guardar nuevo producto
-  const guardarProducto = () => {
+  const guardarProducto = async () => {
     if (!validarFormulario(nuevoProducto)) {
       return
     }
 
-    const estado = determinarEstado(nuevoProducto.stock || 0, nuevoProducto.alertaStock)
-    const nuevoId = Math.max(...productos.map((p) => p.id), 0) + 1
+    try {
+      setGuardando(true)
+      await crearProducto(nuevoProducto as Omit<InventarioComidaInsert, "restaurante_id">)
 
-    const productoCompleto: Producto = {
-      id: nuevoId,
-      nombre: nuevoProducto.nombre!,
-      categoria: nuevoProducto.categoria!,
-      stock: nuevoProducto.stock || 0,
-      unidad: nuevoProducto.unidad!,
-      precioUnidad: nuevoProducto.precioUnidad || 0,
-      fechaCaducidad: nuevoProducto.fechaCaducidad!,
-      estado: estado,
-      descripcion: nuevoProducto.descripcion,
-      proveedor: nuevoProducto.proveedor,
-      ubicacion: nuevoProducto.ubicacion,
-      codigoBarras: nuevoProducto.codigoBarras,
-      alertaStock: nuevoProducto.alertaStock,
+      setDialogOpen(false)
+      resetearFormulario()
+
+      toast({
+        title: "Producto añadido",
+        description: `${nuevoProducto.nombre} ha sido añadido al inventario.`,
+      })
+    } catch (error) {
+      console.error("Error guardando producto:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo guardar el producto. Inténtalo de nuevo.",
+        variant: "destructive",
+      })
+    } finally {
+      setGuardando(false)
     }
-
-    setProductos([...productos, productoCompleto])
-    setDialogOpen(false)
-    resetearFormulario()
-
-    toast({
-      title: "Producto añadido",
-      description: `${productoCompleto.nombre} ha sido añadido al inventario.`,
-    })
   }
 
   // Actualizar producto existente
-  const actualizarProducto = () => {
+  const actualizarProductoExistente = async () => {
     if (!productoEditando || !validarFormulario(productoEditando)) {
       return
     }
 
-    const estado = determinarEstado(productoEditando.stock, productoEditando.alertaStock)
+    try {
+      setGuardando(true)
+      await actualizarProducto(productoEditando.id, productoEditando)
 
-    const productoActualizado: Producto = {
-      ...productoEditando,
-      estado: estado,
+      setEditDialogOpen(false)
+      setProductoEditando(null)
+      setErrores({})
+
+      toast({
+        title: "Producto actualizado",
+        description: `${productoEditando.nombre} ha sido actualizado correctamente.`,
+      })
+    } catch (error) {
+      console.error("Error actualizando producto:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el producto. Inténtalo de nuevo.",
+        variant: "destructive",
+      })
+    } finally {
+      setGuardando(false)
     }
-
-    setProductos(productos.map((p) => (p.id === productoEditando.id ? productoActualizado : p)))
-    setEditDialogOpen(false)
-    setProductoEditando(null)
-    setErrores({})
-
-    toast({
-      title: "Producto actualizado",
-      description: `${productoActualizado.nombre} ha sido actualizado correctamente.`,
-    })
   }
 
   // Eliminar producto
-  const eliminarProducto = () => {
+  const eliminarProductoConfirmado = async () => {
     if (!productoAEliminar) return
 
-    setProductos(productos.filter((p) => p.id !== productoAEliminar.id))
-    setDeleteDialogOpen(false)
-    setProductoAEliminar(null)
+    try {
+      await eliminarProducto(productoAEliminar.id)
 
-    toast({
-      title: "Producto eliminado",
-      description: `${productoAEliminar.nombre} ha sido eliminado del inventario.`,
-      variant: "destructive",
-    })
+      setDeleteDialogOpen(false)
+      setProductoAEliminar(null)
+
+      toast({
+        title: "Producto eliminado",
+        description: `${productoAEliminar.nombre} ha sido eliminado del inventario.`,
+        variant: "destructive",
+      })
+    } catch (error) {
+      console.error("Error eliminando producto:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar el producto. Inténtalo de nuevo.",
+        variant: "destructive",
+      })
+    }
   }
 
   // Abrir diálogo de edición
-  const abrirEdicion = (producto: Producto) => {
+  const abrirEdicion = (producto: InventarioComida) => {
     setProductoEditando({ ...producto })
-    setFechaEdicion(parse(producto.fechaCaducidad, "yyyy-MM-dd", new Date()))
+    if (producto.fecha_caducidad) {
+      setFechaEdicion(parse(producto.fecha_caducidad, "yyyy-MM-dd", new Date()))
+    }
     setErrores({})
     setEditDialogOpen(true)
   }
 
   // Abrir diálogo de eliminación
-  const abrirEliminacion = (producto: Producto) => {
+  const abrirEliminacion = (producto: InventarioComida) => {
     setProductoAEliminar(producto)
     setDeleteDialogOpen(true)
   }
@@ -276,10 +320,13 @@ export default function InventarioComidaPage() {
       categoria: "",
       stock: 0,
       unidad: "",
-      precioUnidad: 0,
-      fechaCaducidad: format(new Date(), "yyyy-MM-dd"),
-      estado: "Normal",
-      alertaStock: 5,
+      precio_unidad: 0,
+      fecha_caducidad: format(new Date(), "yyyy-MM-dd"),
+      alerta_stock: 5,
+      proveedor: "",
+      descripcion: "",
+      ubicacion: "",
+      codigo_barras: "",
     })
     setFecha(new Date())
     setErrores({})
@@ -291,13 +338,13 @@ export default function InventarioComidaPage() {
     if (date) {
       setNuevoProducto({
         ...nuevoProducto,
-        fechaCaducidad: format(date, "yyyy-MM-dd"),
+        fecha_caducidad: format(date, "yyyy-MM-dd"),
       })
 
-      if (errores.fechaCaducidad) {
+      if (errores.fecha_caducidad) {
         setErrores({
           ...errores,
-          fechaCaducidad: "",
+          fecha_caducidad: "",
         })
       }
     }
@@ -309,16 +356,72 @@ export default function InventarioComidaPage() {
     if (date && productoEditando) {
       setProductoEditando({
         ...productoEditando,
-        fechaCaducidad: format(date, "yyyy-MM-dd"),
+        fecha_caducidad: format(date, "yyyy-MM-dd"),
       })
 
-      if (errores.fechaCaducidad) {
+      if (errores.fecha_caducidad) {
         setErrores({
           ...errores,
-          fechaCaducidad: "",
+          fecha_caducidad: "",
         })
       }
     }
+  }
+
+  // Obtener color del estado
+  const getEstadoColor = (estado: string) => {
+    switch (estado) {
+      case "normal":
+        return "bg-green-100 text-green-800"
+      case "bajo":
+        return "bg-yellow-100 text-yellow-800"
+      case "agotado":
+        return "bg-red-100 text-red-800"
+      case "vencido":
+        return "bg-gray-100 text-gray-800"
+      default:
+        return "bg-gray-100 text-gray-800"
+    }
+  }
+
+  // Obtener texto del estado
+  const getEstadoTexto = (estado: string) => {
+    switch (estado) {
+      case "normal":
+        return "Normal"
+      case "bajo":
+        return "Stock Bajo"
+      case "agotado":
+        return "Agotado"
+      case "vencido":
+        return "Vencido"
+      default:
+        return estado
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <Package className="mx-auto h-12 w-12 text-muted-foreground mb-4 animate-pulse" />
+          <p className="text-muted-foreground">Cargando inventario...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <AlertTriangle className="mx-auto h-12 w-12 text-red-500 mb-4" />
+          <h3 className="text-lg font-semibold mb-2">Error al cargar inventario</h3>
+          <p className="text-muted-foreground mb-4">{error}</p>
+          <Button onClick={() => window.location.reload()}>Reintentar</Button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -329,6 +432,7 @@ export default function InventarioComidaPage() {
           <Plus className="mr-2 h-4 w-4" /> Nuevo Producto
         </Button>
       </div>
+
       <div className="flex items-center gap-4">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -341,12 +445,13 @@ export default function InventarioComidaPage() {
           />
         </div>
       </div>
+
       <Tabs defaultValue="todos" className="space-y-4" value={filtroCategoria} onValueChange={setFiltroCategoria}>
         <ScrollArea className="w-full">
           <div className="flex pb-2 pr-2">
             <TabsList className="flex-nowrap">
               <TabsTrigger value="todos">Todos</TabsTrigger>
-              {CATEGORIAS.map((categoria) => (
+              {todasLasCategorias.map((categoria) => (
                 <TabsTrigger key={categoria} value={categoria}>
                   {categoria}
                 </TabsTrigger>
@@ -361,26 +466,31 @@ export default function InventarioComidaPage() {
               <CardTitle>Resumen de Inventario</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
                 <div className="rounded-lg border p-3">
                   <div className="text-sm font-medium text-muted-foreground">Total de Productos</div>
-                  <div className="text-2xl font-bold">{resumenInventario.total}</div>
+                  <div className="text-2xl font-bold">{estadisticas.total}</div>
                 </div>
                 <div className="rounded-lg border p-3">
-                  <div className="text-sm font-medium text-muted-foreground">Productos Bajos</div>
-                  <div className="text-2xl font-bold text-yellow-600">{resumenInventario.bajos}</div>
+                  <div className="text-sm font-medium text-muted-foreground">Stock Bajo</div>
+                  <div className="text-2xl font-bold text-yellow-600">{estadisticas.stockBajo}</div>
                 </div>
                 <div className="rounded-lg border p-3">
                   <div className="text-sm font-medium text-muted-foreground">Agotados</div>
-                  <div className="text-2xl font-bold text-red-600">{resumenInventario.agotados}</div>
+                  <div className="text-2xl font-bold text-red-600">{estadisticas.agotados}</div>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <div className="text-sm font-medium text-muted-foreground">Vencidos</div>
+                  <div className="text-2xl font-bold text-gray-600">{estadisticas.vencidos}</div>
                 </div>
                 <div className="rounded-lg border p-3">
                   <div className="text-sm font-medium text-muted-foreground">Valor Total</div>
-                  <div className="text-2xl font-bold">${resumenInventario.valorTotal.toFixed(2)}</div>
+                  <div className="text-2xl font-bold">${estadisticas.valorTotal.toFixed(2)}</div>
                 </div>
               </div>
             </CardContent>
           </Card>
+
           <Card>
             <CardContent className="p-0">
               <Table>
@@ -393,6 +503,7 @@ export default function InventarioComidaPage() {
                     <TableHead>Precio/Unidad</TableHead>
                     <TableHead>Fecha Caducidad</TableHead>
                     <TableHead>Estado</TableHead>
+                    <TableHead>Proveedor</TableHead>
                     <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -400,25 +511,29 @@ export default function InventarioComidaPage() {
                   {productosFiltrados.length > 0 ? (
                     productosFiltrados.map((item) => (
                       <TableRow key={item.id}>
-                        <TableCell className="font-medium">{item.nombre}</TableCell>
+                        <TableCell className="font-medium">
+                          <div>
+                            <div>{item.nombre}</div>
+                            {item.codigo_barras && (
+                              <div className="text-xs text-muted-foreground">Código: {item.codigo_barras}</div>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell>{item.categoria}</TableCell>
                         <TableCell>{item.stock}</TableCell>
                         <TableCell>{item.unidad}</TableCell>
-                        <TableCell>${item.precioUnidad.toFixed(2)}</TableCell>
-                        <TableCell>{item.fechaCaducidad}</TableCell>
+                        <TableCell>${item.precio_unidad.toFixed(2)}</TableCell>
+                        <TableCell>
+                          {item.fecha_caducidad ? format(new Date(item.fecha_caducidad), "dd/MM/yyyy") : "N/A"}
+                        </TableCell>
                         <TableCell>
                           <div
-                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                              item.estado === "Normal"
-                                ? "bg-green-100 text-green-800"
-                                : item.estado === "Bajo"
-                                  ? "bg-yellow-100 text-yellow-800"
-                                  : "bg-red-100 text-red-800"
-                            }`}
+                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${getEstadoColor(item.estado)}`}
                           >
-                            {item.estado}
+                            {getEstadoTexto(item.estado)}
                           </div>
                         </TableCell>
+                        <TableCell>{item.proveedor || "N/A"}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             <Button variant="ghost" size="sm" onClick={() => abrirEdicion(item)}>
@@ -433,8 +548,10 @@ export default function InventarioComidaPage() {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-6 text-muted-foreground">
-                        No se encontraron productos
+                      <TableCell colSpan={9} className="text-center py-6 text-muted-foreground">
+                        {busqueda
+                          ? "No se encontraron productos que coincidan con la búsqueda"
+                          : "No hay productos en el inventario"}
                       </TableCell>
                     </TableRow>
                   )}
@@ -447,7 +564,7 @@ export default function InventarioComidaPage() {
 
       {/* Diálogo para nuevo producto */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Añadir Nuevo Producto</DialogTitle>
             <DialogDescription>Complete los detalles del producto para añadirlo al inventario.</DialogDescription>
@@ -550,32 +667,32 @@ export default function InventarioComidaPage() {
 
               {/* Precio por unidad */}
               <div className="space-y-2">
-                <Label htmlFor="precioUnidad" className="text-base">
+                <Label htmlFor="precio_unidad" className="text-base">
                   Precio por unidad <span className="text-red-500">*</span>
                 </Label>
                 <div className="relative">
                   <span className="absolute left-3 top-2.5">$</span>
                   <Input
-                    id="precioUnidad"
-                    name="precioUnidad"
+                    id="precio_unidad"
+                    name="precio_unidad"
                     type="number"
                     min="0.01"
                     step="0.01"
                     placeholder="0.00"
-                    value={nuevoProducto.precioUnidad}
+                    value={nuevoProducto.precio_unidad}
                     onChange={handleInputChange}
-                    className={cn("pl-7", errores.precioUnidad && "border-red-500")}
+                    className={cn("pl-7", errores.precio_unidad && "border-red-500")}
                   />
                 </div>
-                {errores.precioUnidad && <p className="text-sm text-red-500">{errores.precioUnidad}</p>}
+                {errores.precio_unidad && <p className="text-sm text-red-500">{errores.precio_unidad}</p>}
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Fecha de caducidad */}
               <div className="space-y-2">
-                <Label htmlFor="fechaCaducidad" className="text-base">
-                  Fecha de caducidad <span className="text-red-500">*</span>
+                <Label htmlFor="fecha_caducidad" className="text-base">
+                  Fecha de caducidad
                 </Label>
                 <Popover>
                   <PopoverTrigger asChild>
@@ -584,7 +701,7 @@ export default function InventarioComidaPage() {
                       className={cn(
                         "w-full justify-start text-left font-normal",
                         !fecha && "text-muted-foreground",
-                        errores.fechaCaducidad && "border-red-500",
+                        errores.fecha_caducidad && "border-red-500",
                       )}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
@@ -595,90 +712,85 @@ export default function InventarioComidaPage() {
                     <Calendar mode="single" selected={fecha} onSelect={handleFechaChange} initialFocus locale={es} />
                   </PopoverContent>
                 </Popover>
-                {errores.fechaCaducidad && <p className="text-sm text-red-500">{errores.fechaCaducidad}</p>}
+                {errores.fecha_caducidad && <p className="text-sm text-red-500">{errores.fecha_caducidad}</p>}
               </div>
 
               {/* Alerta de stock bajo */}
               <div className="space-y-2">
-                <Label htmlFor="alertaStock" className="text-base">
+                <Label htmlFor="alerta_stock" className="text-base">
                   Alerta de stock bajo
                 </Label>
                 <Input
-                  id="alertaStock"
-                  name="alertaStock"
+                  id="alerta_stock"
+                  name="alerta_stock"
                   type="number"
                   min="1"
                   placeholder="Ej: 5"
-                  value={nuevoProducto.alertaStock}
+                  value={nuevoProducto.alerta_stock}
                   onChange={handleInputChange}
                 />
                 <p className="text-xs text-muted-foreground">Cantidad a partir de la cual se marcará como "Bajo"</p>
               </div>
             </div>
 
-            {/* Campos opcionales */}
-            <div className="space-y-2">
-              <div className="flex items-center">
-                <h4 className="text-sm font-medium">Información adicional</h4>
-                <div className="ml-2 h-px flex-1 bg-border"></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Proveedor */}
+              <div className="space-y-2">
+                <Label htmlFor="proveedor" className="text-base">
+                  Proveedor
+                </Label>
+                <Input
+                  id="proveedor"
+                  name="proveedor"
+                  placeholder="Nombre del proveedor"
+                  value={nuevoProducto.proveedor || ""}
+                  onChange={handleInputChange}
+                />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Descripción */}
-                <div className="space-y-2">
-                  <Label htmlFor="descripcion" className="text-sm">
-                    Descripción
-                  </Label>
-                  <Input
-                    id="descripcion"
-                    name="descripcion"
-                    placeholder="Descripción del producto"
-                    value={nuevoProducto.descripcion || ""}
-                    onChange={handleInputChange}
-                  />
-                </div>
+              {/* Código de barras */}
+              <div className="space-y-2">
+                <Label htmlFor="codigo_barras" className="text-base">
+                  Código de barras
+                </Label>
+                <Input
+                  id="codigo_barras"
+                  name="codigo_barras"
+                  placeholder="Código de barras"
+                  value={nuevoProducto.codigo_barras || ""}
+                  onChange={handleInputChange}
+                />
+              </div>
+            </div>
 
-                {/* Proveedor */}
-                <div className="space-y-2">
-                  <Label htmlFor="proveedor" className="text-sm">
-                    Proveedor
-                  </Label>
-                  <Input
-                    id="proveedor"
-                    name="proveedor"
-                    placeholder="Nombre del proveedor"
-                    value={nuevoProducto.proveedor || ""}
-                    onChange={handleInputChange}
-                  />
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Descripción */}
+              <div className="space-y-2">
+                <Label htmlFor="descripcion" className="text-base">
+                  Descripción
+                </Label>
+                <Textarea
+                  id="descripcion"
+                  name="descripcion"
+                  placeholder="Descripción del producto"
+                  value={nuevoProducto.descripcion || ""}
+                  onChange={handleInputChange}
+                  rows={3}
+                />
+              </div>
 
-                {/* Ubicación */}
-                <div className="space-y-2">
-                  <Label htmlFor="ubicacion" className="text-sm">
-                    Ubicación
-                  </Label>
-                  <Input
-                    id="ubicacion"
-                    name="ubicacion"
-                    placeholder="Ubicación en almacén"
-                    value={nuevoProducto.ubicacion || ""}
-                    onChange={handleInputChange}
-                  />
-                </div>
-
-                {/* Código de barras */}
-                <div className="space-y-2">
-                  <Label htmlFor="codigoBarras" className="text-sm">
-                    Código de barras
-                  </Label>
-                  <Input
-                    id="codigoBarras"
-                    name="codigoBarras"
-                    placeholder="Código de barras"
-                    value={nuevoProducto.codigoBarras || ""}
-                    onChange={handleInputChange}
-                  />
-                </div>
+              {/* Ubicación */}
+              <div className="space-y-2">
+                <Label htmlFor="ubicacion" className="text-base">
+                  Ubicación en almacén
+                </Label>
+                <Input
+                  id="ubicacion"
+                  name="ubicacion"
+                  placeholder="Ej: Estante A, Refrigerador 1"
+                  value={nuevoProducto.ubicacion || ""}
+                  onChange={handleInputChange}
+                />
               </div>
             </div>
           </div>
@@ -688,9 +800,18 @@ export default function InventarioComidaPage() {
               <X className="mr-2 h-4 w-4" />
               Cancelar
             </Button>
-            <Button onClick={guardarProducto} className="w-full sm:w-auto">
-              <Check className="mr-2 h-4 w-4" />
-              Guardar Producto
+            <Button onClick={guardarProducto} disabled={guardando} className="w-full sm:w-auto">
+              {guardando ? (
+                <>
+                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-foreground" />
+                  Guardando...
+                </>
+              ) : (
+                <>
+                  <Check className="mr-2 h-4 w-4" />
+                  Guardar Producto
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -698,7 +819,7 @@ export default function InventarioComidaPage() {
 
       {/* Diálogo para editar producto */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Editar Producto</DialogTitle>
             <DialogDescription>Modifique los detalles del producto en el inventario.</DialogDescription>
@@ -802,32 +923,32 @@ export default function InventarioComidaPage() {
 
                 {/* Precio por unidad */}
                 <div className="space-y-2">
-                  <Label htmlFor="edit-precioUnidad" className="text-base">
+                  <Label htmlFor="edit-precio_unidad" className="text-base">
                     Precio por unidad <span className="text-red-500">*</span>
                   </Label>
                   <div className="relative">
                     <span className="absolute left-3 top-2.5">$</span>
                     <Input
-                      id="edit-precioUnidad"
-                      name="precioUnidad"
+                      id="edit-precio_unidad"
+                      name="precio_unidad"
                       type="number"
                       min="0.01"
                       step="0.01"
                       placeholder="0.00"
-                      value={productoEditando.precioUnidad}
+                      value={productoEditando.precio_unidad}
                       onChange={handleEditInputChange}
-                      className={cn("pl-7", errores.precioUnidad && "border-red-500")}
+                      className={cn("pl-7", errores.precio_unidad && "border-red-500")}
                     />
                   </div>
-                  {errores.precioUnidad && <p className="text-sm text-red-500">{errores.precioUnidad}</p>}
+                  {errores.precio_unidad && <p className="text-sm text-red-500">{errores.precio_unidad}</p>}
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Fecha de caducidad */}
                 <div className="space-y-2">
-                  <Label htmlFor="edit-fechaCaducidad" className="text-base">
-                    Fecha de caducidad <span className="text-red-500">*</span>
+                  <Label htmlFor="edit-fecha_caducidad" className="text-base">
+                    Fecha de caducidad
                   </Label>
                   <Popover>
                     <PopoverTrigger asChild>
@@ -836,7 +957,7 @@ export default function InventarioComidaPage() {
                         className={cn(
                           "w-full justify-start text-left font-normal",
                           !fechaEdicion && "text-muted-foreground",
-                          errores.fechaCaducidad && "border-red-500",
+                          errores.fecha_caducidad && "border-red-500",
                         )}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
@@ -853,90 +974,85 @@ export default function InventarioComidaPage() {
                       />
                     </PopoverContent>
                   </Popover>
-                  {errores.fechaCaducidad && <p className="text-sm text-red-500">{errores.fechaCaducidad}</p>}
+                  {errores.fecha_caducidad && <p className="text-sm text-red-500">{errores.fecha_caducidad}</p>}
                 </div>
 
                 {/* Alerta de stock bajo */}
                 <div className="space-y-2">
-                  <Label htmlFor="edit-alertaStock" className="text-base">
+                  <Label htmlFor="edit-alerta_stock" className="text-base">
                     Alerta de stock bajo
                   </Label>
                   <Input
-                    id="edit-alertaStock"
-                    name="alertaStock"
+                    id="edit-alerta_stock"
+                    name="alerta_stock"
                     type="number"
                     min="1"
                     placeholder="Ej: 5"
-                    value={productoEditando.alertaStock || ""}
+                    value={productoEditando.alerta_stock || ""}
                     onChange={handleEditInputChange}
                   />
                   <p className="text-xs text-muted-foreground">Cantidad a partir de la cual se marcará como "Bajo"</p>
                 </div>
               </div>
 
-              {/* Campos opcionales */}
-              <div className="space-y-2">
-                <div className="flex items-center">
-                  <h4 className="text-sm font-medium">Información adicional</h4>
-                  <div className="ml-2 h-px flex-1 bg-border"></div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Proveedor */}
+                <div className="space-y-2">
+                  <Label htmlFor="edit-proveedor" className="text-base">
+                    Proveedor
+                  </Label>
+                  <Input
+                    id="edit-proveedor"
+                    name="proveedor"
+                    placeholder="Nombre del proveedor"
+                    value={productoEditando.proveedor || ""}
+                    onChange={handleEditInputChange}
+                  />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Descripción */}
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-descripcion" className="text-sm">
-                      Descripción
-                    </Label>
-                    <Input
-                      id="edit-descripcion"
-                      name="descripcion"
-                      placeholder="Descripción del producto"
-                      value={productoEditando.descripcion || ""}
-                      onChange={handleEditInputChange}
-                    />
-                  </div>
+                {/* Código de barras */}
+                <div className="space-y-2">
+                  <Label htmlFor="edit-codigo_barras" className="text-base">
+                    Código de barras
+                  </Label>
+                  <Input
+                    id="edit-codigo_barras"
+                    name="codigo_barras"
+                    placeholder="Código de barras"
+                    value={productoEditando.codigo_barras || ""}
+                    onChange={handleEditInputChange}
+                  />
+                </div>
+              </div>
 
-                  {/* Proveedor */}
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-proveedor" className="text-sm">
-                      Proveedor
-                    </Label>
-                    <Input
-                      id="edit-proveedor"
-                      name="proveedor"
-                      placeholder="Nombre del proveedor"
-                      value={productoEditando.proveedor || ""}
-                      onChange={handleEditInputChange}
-                    />
-                  </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Descripción */}
+                <div className="space-y-2">
+                  <Label htmlFor="edit-descripcion" className="text-base">
+                    Descripción
+                  </Label>
+                  <Textarea
+                    id="edit-descripcion"
+                    name="descripcion"
+                    placeholder="Descripción del producto"
+                    value={productoEditando.descripcion || ""}
+                    onChange={handleEditInputChange}
+                    rows={3}
+                  />
+                </div>
 
-                  {/* Ubicación */}
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-ubicacion" className="text-sm">
-                      Ubicación
-                    </Label>
-                    <Input
-                      id="edit-ubicacion"
-                      name="ubicacion"
-                      placeholder="Ubicación en almacén"
-                      value={productoEditando.ubicacion || ""}
-                      onChange={handleEditInputChange}
-                    />
-                  </div>
-
-                  {/* Código de barras */}
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-codigoBarras" className="text-sm">
-                      Código de barras
-                    </Label>
-                    <Input
-                      id="edit-codigoBarras"
-                      name="codigoBarras"
-                      placeholder="Código de barras"
-                      value={productoEditando.codigoBarras || ""}
-                      onChange={handleEditInputChange}
-                    />
-                  </div>
+                {/* Ubicación */}
+                <div className="space-y-2">
+                  <Label htmlFor="edit-ubicacion" className="text-base">
+                    Ubicación en almacén
+                  </Label>
+                  <Input
+                    id="edit-ubicacion"
+                    name="ubicacion"
+                    placeholder="Ej: Estante A, Refrigerador 1"
+                    value={productoEditando.ubicacion || ""}
+                    onChange={handleEditInputChange}
+                  />
                 </div>
               </div>
             </div>
@@ -947,9 +1063,18 @@ export default function InventarioComidaPage() {
               <X className="mr-2 h-4 w-4" />
               Cancelar
             </Button>
-            <Button onClick={actualizarProducto} className="w-full sm:w-auto">
-              <Check className="mr-2 h-4 w-4" />
-              Actualizar Producto
+            <Button onClick={actualizarProductoExistente} disabled={guardando} className="w-full sm:w-auto">
+              {guardando ? (
+                <>
+                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-foreground" />
+                  Actualizando...
+                </>
+              ) : (
+                <>
+                  <Check className="mr-2 h-4 w-4" />
+                  Actualizar Producto
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -967,7 +1092,7 @@ export default function InventarioComidaPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={eliminarProducto} className="bg-red-600 hover:bg-red-700">
+            <AlertDialogAction onClick={eliminarProductoConfirmado} className="bg-red-600 hover:bg-red-700">
               Eliminar
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -976,83 +1101,3 @@ export default function InventarioComidaPage() {
     </div>
   )
 }
-
-const inventarioComidas = [
-  {
-    id: 1,
-    nombre: "Pechuga de Pollo",
-    categoria: "Carnes",
-    stock: 25,
-    unidad: "kg",
-    precioUnidad: 8.99,
-    fechaCaducidad: "2023-06-15",
-    estado: "Normal" as const,
-    alertaStock: 5,
-  },
-  {
-    id: 2,
-    nombre: "Carne Molida",
-    categoria: "Carnes",
-    stock: 10,
-    unidad: "kg",
-    precioUnidad: 7.5,
-    fechaCaducidad: "2023-06-10",
-    estado: "Bajo" as const,
-    alertaStock: 15,
-  },
-  {
-    id: 3,
-    nombre: "Tomates",
-    categoria: "Verduras",
-    stock: 15,
-    unidad: "kg",
-    precioUnidad: 2.99,
-    fechaCaducidad: "2023-06-08",
-    estado: "Normal" as const,
-    alertaStock: 5,
-  },
-  {
-    id: 4,
-    nombre: "Lechuga",
-    categoria: "Verduras",
-    stock: 8,
-    unidad: "unidad",
-    precioUnidad: 1.5,
-    fechaCaducidad: "2023-06-05",
-    estado: "Bajo" as const,
-    alertaStock: 10,
-  },
-  {
-    id: 5,
-    nombre: "Queso Mozzarella",
-    categoria: "Lácteos",
-    stock: 5,
-    unidad: "kg",
-    precioUnidad: 12.99,
-    fechaCaducidad: "2023-06-20",
-    estado: "Normal" as const,
-    alertaStock: 3,
-  },
-  {
-    id: 6,
-    nombre: "Huevos",
-    categoria: "Lácteos",
-    stock: 0,
-    unidad: "docena",
-    precioUnidad: 3.99,
-    fechaCaducidad: "2023-06-25",
-    estado: "Agotado" as const,
-    alertaStock: 5,
-  },
-  {
-    id: 7,
-    nombre: "Harina",
-    categoria: "Otros",
-    stock: 20,
-    unidad: "kg",
-    precioUnidad: 1.99,
-    fechaCaducidad: "2023-08-15",
-    estado: "Normal" as const,
-    alertaStock: 5,
-  },
-]
