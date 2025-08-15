@@ -1,0 +1,293 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enum definitions
+enum CargoEmpleado {
+  Dueno        @map("Dueño")
+  Administrador
+  Gerente
+  Mesero
+  Cocinero
+  Bartender
+  Cajero
+  Limpieza
+
+  @@map("cargo_empleado")
+}
+
+enum EstadoEmpleado {
+  activo
+  inactivo
+  vacaciones
+
+  @@map("estado_empleado")
+}
+
+// Main tables
+model Restaurante {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id               String   @db.Uuid
+  nombre                String   @db.VarChar(100)
+  descripcion           String?
+  logo_url              String?
+  
+  // Información del dueño
+  dueno_nombre          String   @db.VarChar(100)
+  dueno_apellido        String   @db.VarChar(100)
+  dueno_email           String   @db.VarChar(255)
+  dueno_telefono        String?  @db.VarChar(20)
+  dueno_dni             String?  @db.VarChar(20)
+  
+  // Información fiscal
+  cuit                  String   @db.VarChar(15)
+  razon_social          String   @db.VarChar(200)
+  condicion_fiscal      String?  @db.VarChar(50)
+  
+  // Ubicación
+  direccion             String
+  ciudad                String   @db.VarChar(100)
+  provincia             String   @db.VarChar(100)
+  codigo_postal         String?  @db.VarChar(10)
+  pais                  String?  @default("Argentina") @db.VarChar(100)
+  latitud               Decimal? @db.Decimal(10, 8)
+  longitud              Decimal? @db.Decimal(11, 8)
+  
+  // Información operativa
+  capacidad_total       Int?
+  numero_mesas          Int?
+  horario_apertura      String?  @db.Time
+  horario_cierre        String?  @db.Time
+  dias_operacion        String[]
+  
+  // Configuración
+  moneda                String?  @default("ARS") @db.VarChar(10)
+  zona_horaria          String?  @default("America/Argentina/Buenos_Aires") @db.VarChar(50)
+  idioma                String?  @default("es") @db.VarChar(10)
+  
+  // Contacto
+  telefono_restaurante  String?  @db.VarChar(20)
+  email_restaurante     String?  @db.VarChar(255)
+  sitio_web             String?
+  redes_sociales        Json?
+  
+  // Estado
+  activo                Boolean? @default(true)
+  fecha_apertura        DateTime? @db.Date
+  
+  created_at            DateTime @default(now())
+  updated_at            DateTime @default(now()) @updatedAt
+  
+  // Relations
+  empleados             Empleado[]
+  menus                 Menu[]
+  inventario_comidas    InventarioComida[]
+  inventario_bebidas    InventarioBebida[]
+  pedidos               Pedido[]
+  cajas                 Caja[]
+  transacciones         Transaccion[]
+
+  @@unique([user_id, nombre])
+  @@map("restaurantes")
+}
+
+model Empleado {
+  id                    String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurante_id        String           @db.Uuid
+  user_id               String?          @db.Uuid
+  nombre                String           @db.VarChar(100)
+  cargo                 CargoEmpleado    @default(Mesero)
+  contacto              String           @db.VarChar(100)
+  email                 String?          @db.VarChar(255)
+  estado                EstadoEmpleado   @default(activo)
+  horario               String?
+  fecha_ingreso         DateTime?        @db.Date
+  salario               Decimal?         @db.Decimal(10, 2)
+  notas                 String?
+  es_admin_principal    Boolean?         @default(false)
+  created_at            DateTime         @default(now())
+  updated_at            DateTime         @default(now()) @updatedAt
+  
+  // Relations
+  restaurante           Restaurante      @relation(fields: [restaurante_id], references: [id], onDelete: Cascade)
+  permisos              PermisoEmpleado[]
+
+  @@map("empleados")
+}
+
+model SeccionSistema {
+  id                    String   @id @db.VarChar(50)
+  nombre                String   @db.VarChar(255)
+  descripcion           String?
+  icono                 String?  @db.VarChar(100)
+  activa                Boolean? @default(true)
+  created_at            DateTime @default(now())
+  updated_at            DateTime @default(now()) @updatedAt
+  
+  // Relations
+  permisos              PermisoEmpleado[]
+
+  @@map("secciones_sistema")
+}
+
+model PermisoEmpleado {
+  id                    String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  empleado_id           String          @db.Uuid
+  seccion_id            String          @db.VarChar(50)
+  puede_ver             Boolean?        @default(false)
+  puede_crear           Boolean?        @default(false)
+  puede_editar          Boolean?        @default(false)
+  puede_eliminar        Boolean?        @default(false)
+  created_at            DateTime        @default(now())
+  updated_at            DateTime        @default(now()) @updatedAt
+  
+  // Relations
+  empleado              Empleado        @relation(fields: [empleado_id], references: [id], onDelete: Cascade)
+  seccion               SeccionSistema  @relation(fields: [seccion_id], references: [id], onDelete: Cascade)
+
+  @@unique([empleado_id, seccion_id])
+  @@map("permisos_empleados")
+}
+
+model Menu {
+  id                    String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurante_id        String      @db.Uuid
+  titulo                String      @db.VarChar(255)
+  descripcion           String?
+  ingredientes          String?
+  precio                Decimal     @db.Decimal(10, 2)
+  categoria             String      @db.VarChar(100)
+  stock                 Int?
+  imagen_url            String?
+  disponible            Boolean?    @default(true)
+  orden_menu            Int?
+  created_at            DateTime    @default(now())
+  updated_at            DateTime    @default(now()) @updatedAt
+  
+  // Relations
+  restaurante           Restaurante @relation(fields: [restaurante_id], references: [id], onDelete: Cascade)
+
+  @@map("menus")
+}
+
+model InventarioComida {
+  id                    String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurante_id        String      @db.Uuid
+  nombre                String      @db.VarChar(255)
+  categoria             String      @db.VarChar(100)
+  stock                 Decimal     @default(0) @db.Decimal(10, 2)
+  unidad                String      @db.VarChar(50)
+  precio_unidad         Decimal     @db.Decimal(10, 2)
+  fecha_caducidad       DateTime?   @db.Date
+  estado                String      @default("normal") @db.VarChar(20)
+  codigo_barras         String?     @db.VarChar(100)
+  alerta_stock          Int?        @default(5)
+  proveedor             String?     @db.VarChar(255)
+  descripcion           String?
+  ubicacion             String?     @db.VarChar(255)
+  created_at            DateTime    @default(now())
+  updated_at            DateTime    @default(now()) @updatedAt
+  
+  // Relations
+  restaurante           Restaurante @relation(fields: [restaurante_id], references: [id], onDelete: Cascade)
+
+  @@map("inventario_comidas")
+}
+
+model InventarioBebida {
+  id                    String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurante_id        String      @db.Uuid
+  nombre                String      @db.VarChar(255)
+  categoria             String      @db.VarChar(100)
+  stock                 Decimal     @default(0) @db.Decimal(10, 2)
+  unidad                String      @db.VarChar(50)
+  precio_unidad         Decimal     @db.Decimal(10, 2)
+  fecha_caducidad       DateTime?   @db.Date
+  estado                String      @default("normal") @db.VarChar(20)
+  codigo_barras         String?     @db.VarChar(100)
+  alerta_stock          Int?        @default(5)
+  proveedor             String?     @db.VarChar(255)
+  descripcion           String?
+  ubicacion             String?     @db.VarChar(255)
+  graduacion_alcoholica Decimal?    @default(0) @db.Decimal(4, 2)
+  volumen               Int?        // en ml
+  created_at            DateTime    @default(now())
+  updated_at            DateTime    @default(now()) @updatedAt
+  
+  // Relations
+  restaurante           Restaurante @relation(fields: [restaurante_id], references: [id], onDelete: Cascade)
+
+  @@map("inventario_bebidas")
+}
+
+model Pedido {
+  id                    String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurante_id        String      @db.Uuid
+  mesa_numero           Int?
+  cliente_nombre        String?     @db.VarChar(255)
+  items                 Json
+  total                 Decimal     @db.Decimal(10, 2)
+  estado                String      @default("pendiente") @db.VarChar(50)
+  fecha_pedido          DateTime    @default(now())
+  fecha_entrega         DateTime?
+  notas                 String?
+  metodo_pago           String?     @db.VarChar(50)
+  created_at            DateTime    @default(now())
+  updated_at            DateTime    @default(now()) @updatedAt
+  
+  // Relations
+  restaurante           Restaurante @relation(fields: [restaurante_id], references: [id], onDelete: Cascade)
+
+  @@map("pedidos")
+}
+
+model Caja {
+  id                    String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurante_id        String      @db.Uuid
+  fecha                 DateTime    @db.Date
+  turno                 String      @db.VarChar(50)
+  empleado_encargado    String      @db.VarChar(255)
+  monto_inicial         Decimal     @default(0) @db.Decimal(10, 2)
+  monto_final           Decimal?    @db.Decimal(10, 2)
+  total_ventas          Decimal?    @default(0) @db.Decimal(10, 2)
+  estado                String      @default("abierta") @db.VarChar(20)
+  notas                 String?
+  created_at            DateTime    @default(now())
+  updated_at            DateTime    @default(now()) @updatedAt
+  
+  // Relations
+  restaurante           Restaurante @relation(fields: [restaurante_id], references: [id], onDelete: Cascade)
+  transacciones         Transaccion[]
+
+  @@map("cajas")
+}
+
+model Transaccion {
+  id                    String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurante_id        String      @db.Uuid
+  caja_id               String?     @db.Uuid
+  tipo                  String      @db.VarChar(50)
+  categoria             String      @db.VarChar(100)
+  descripcion           String
+  monto                 Decimal     @db.Decimal(10, 2)
+  metodo_pago           String      @db.VarChar(50)
+  fecha_transaccion     DateTime    @default(now())
+  referencia            String?     @db.VarChar(255)
+  notas                 String?
+  created_at            DateTime    @default(now())
+  updated_at            DateTime    @default(now()) @updatedAt
+  
+  // Relations
+  restaurante           Restaurante @relation(fields: [restaurante_id], references: [id], onDelete: Cascade)
+  caja                  Caja?       @relation(fields: [caja_id], references: [id], onDelete: SetNull)
+
+  @@map("transacciones")
+}
