@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,206 +5,181 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  schemas  = ["auth", "public"]
 }
 
-// Enum definitions
-enum CargoEmpleado {
-  Dueno        @map("Dueño")
-  Administrador
-  Gerente
-  Mesero
-  Cocinero
-  Bartender
-  Cajero
-  Limpieza
-
-  @@map("cargo_empleado")
-}
-
-enum EstadoEmpleado {
-  activo
-  inactivo
-  vacaciones
-
-  @@map("estado_empleado")
-}
-
-// Main tables
 model Restaurante {
-  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id               String   @db.Uuid
-  nombre                String   @db.VarChar(100)
-  descripcion           String?
-  logo_url              String?
-  
-  // Información del dueño
-  dueno_nombre          String   @db.VarChar(100)
-  dueno_apellido        String   @db.VarChar(100)
-  dueno_email           String   @db.VarChar(255)
-  dueno_telefono        String?  @db.VarChar(20)
-  dueno_dni             String?  @db.VarChar(20)
-  
-  // Información fiscal
-  cuit                  String   @db.VarChar(15)
-  razon_social          String   @db.VarChar(200)
-  condicion_fiscal      String?  @db.VarChar(50)
-  
-  // Ubicación
-  direccion             String
-  ciudad                String   @db.VarChar(100)
-  provincia             String   @db.VarChar(100)
-  codigo_postal         String?  @db.VarChar(10)
-  pais                  String?  @default("Argentina") @db.VarChar(100)
-  latitud               Decimal? @db.Decimal(10, 8)
-  longitud              Decimal? @db.Decimal(11, 8)
-  
-  // Información operativa
-  capacidad_total       Int?
-  numero_mesas          Int?
-  horario_apertura      String?  @db.Time
-  horario_cierre        String?  @db.Time
-  dias_operacion        String[]
-  
-  // Configuración
-  moneda                String?  @default("ARS") @db.VarChar(10)
-  zona_horaria          String?  @default("America/Argentina/Buenos_Aires") @db.VarChar(50)
-  idioma                String?  @default("es") @db.VarChar(10)
-  
-  // Contacto
-  telefono_restaurante  String?  @db.VarChar(20)
-  email_restaurante     String?  @db.VarChar(255)
-  sitio_web             String?
-  redes_sociales        Json?
-  
-  // Estado
-  activo                Boolean? @default(true)
-  fecha_apertura        DateTime? @db.Date
-  
-  created_at            DateTime @default(now())
-  updated_at            DateTime @default(now()) @updatedAt
-  
-  // Relations
-  empleados             Empleado[]
-  menus                 Menu[]
-  inventario_comidas    InventarioComida[]
-  inventario_bebidas    InventarioBebida[]
-  pedidos               Pedido[]
-  cajas                 Caja[]
-  transacciones         Transaccion[]
+  id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id              String             @db.Uuid
+  nombre               String             @db.VarChar(255)
+  descripcion          String?
+  logo_url             String?
+  dueno_nombre         String             @db.VarChar(255)
+  dueno_apellido       String             @db.VarChar(255)
+  dueno_email          String             @db.VarChar(255)
+  dueno_telefono       String?            @db.VarChar(20)
+  dueno_dni            String?            @db.VarChar(20)
+  cuit                 String             @unique @db.VarChar(13)
+  razon_social         String             @db.VarChar(255)
+  condicion_fiscal     String?            @default("Responsable Inscripto") @db.VarChar(50)
+  direccion            String             @db.VarChar(255)
+  ciudad               String             @db.VarChar(100)
+  provincia            String             @db.VarChar(100)
+  codigo_postal        String?            @db.VarChar(10)
+  pais                 String?            @default("Argentina") @db.VarChar(100)
+  latitud              Decimal?           @db.Decimal(10, 8)
+  longitud             Decimal?           @db.Decimal(11, 8)
+  capacidad_total      Int?               @default(50)
+  numero_mesas         Int?               @default(10)
+  horario_apertura     DateTime?          @db.Time(6)
+  horario_cierre       DateTime?          @db.Time(6)
+  dias_operacion       String[]           @default(["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"])
+  moneda               String?            @default("ARS") @db.VarChar(10)
+  zona_horaria         String?            @default("America/Argentina/Buenos_Aires") @db.VarChar(50)
+  idioma               String?            @default("es") @db.VarChar(10)
+  telefono_restaurante String?            @db.VarChar(20)
+  email_restaurante    String?            @db.VarChar(255)
+  sitio_web            String?            @db.VarChar(255)
+  redes_sociales       Json?              @default("{}")
+  activo               Boolean?           @default(true)
+  fecha_apertura       DateTime?          @db.Date
+  created_at           DateTime           @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  updated_at           DateTime           @default(dbgenerated("timezone('utc'::text, now())")) @updatedAt @db.Timestamptz(6)
+  cajas                Caja[]
+  empleados            Empleado[]
+  inventario_bebidas   InventarioBebida[]
+  inventario_comidas   InventarioComida[]
+  menus                Menu[]
+  pedidos              Pedido[]
+  users                users              @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  transacciones        Transaccion[]
 
-  @@unique([user_id, nombre])
+  @@index([activo], map: "idx_restaurantes_activo")
+  @@index([cuit], map: "idx_restaurantes_cuit")
+  @@index([user_id], map: "idx_restaurantes_user_id")
   @@map("restaurantes")
+  @@schema("public")
 }
 
 model Empleado {
-  id                    String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  restaurante_id        String           @db.Uuid
-  user_id               String?          @db.Uuid
-  nombre                String           @db.VarChar(100)
-  cargo                 CargoEmpleado    @default(Mesero)
-  contacto              String           @db.VarChar(100)
-  email                 String?          @db.VarChar(255)
-  estado                EstadoEmpleado   @default(activo)
-  horario               String?
-  fecha_ingreso         DateTime?        @db.Date
-  salario               Decimal?         @db.Decimal(10, 2)
-  notas                 String?
-  es_admin_principal    Boolean?         @default(false)
-  created_at            DateTime         @default(now())
-  updated_at            DateTime         @default(now()) @updatedAt
-  
-  // Relations
-  restaurante           Restaurante      @relation(fields: [restaurante_id], references: [id], onDelete: Cascade)
-  permisos              PermisoEmpleado[]
+  id                                   String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre                               String            @db.VarChar(255)
+  cargo                                String            @db.VarChar(100)
+  contacto                             String            @db.VarChar(255)
+  estado                               String?           @default("Activo") @db.VarChar(20)
+  horario                              String?
+  restaurant_id                        String?           @db.Uuid
+  created_at                           DateTime?         @default(now()) @db.Timestamptz(6)
+  updated_at                           DateTime?         @default(now()) @updatedAt @db.Timestamptz(6)
+  restaurante_id                       String?           @db.Uuid
+  user_id                              String?           @db.Uuid
+  email                                String?           @db.VarChar(255)
+  es_admin_principal                   Boolean?          @default(false)
+  cajas                                Caja[]
+  users_empleados_restaurant_idTousers users?            @relation("empleados_restaurant_idTousers", fields: [restaurant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  restaurante                          Restaurante?      @relation(fields: [restaurante_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user                                 users?            @relation(fields: [user_id], references: [id], onUpdate: NoAction, map: "fk_empleados_user_id")
+  permisos                             PermisoEmpleado[]
 
+  @@index([email], map: "idx_empleados_email")
+  @@index([es_admin_principal], map: "idx_empleados_es_admin_principal")
+  @@index([estado], map: "idx_empleados_estado")
+  @@index([restaurant_id], map: "idx_empleados_restaurant_id")
+  @@index([restaurante_id], map: "idx_empleados_restaurante_id")
+  @@index([user_id], map: "idx_empleados_user_id")
   @@map("empleados")
+  @@schema("public")
 }
 
 model SeccionSistema {
-  id                    String   @id @db.VarChar(50)
-  nombre                String   @db.VarChar(255)
-  descripcion           String?
-  icono                 String?  @db.VarChar(100)
-  activa                Boolean? @default(true)
-  created_at            DateTime @default(now())
-  updated_at            DateTime @default(now()) @updatedAt
-  
-  // Relations
-  permisos              PermisoEmpleado[]
+  id          String            @id @db.VarChar(50)
+  nombre      String            @db.VarChar(255)
+  descripcion String?
+  icono       String?           @db.VarChar(100)
+  created_at  DateTime?         @default(now()) @db.Timestamptz(6)
+  activa      Boolean?          @default(true)
+  permisos    PermisoEmpleado[]
 
   @@map("secciones_sistema")
+  @@schema("public")
 }
 
 model PermisoEmpleado {
-  id                    String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  empleado_id           String          @db.Uuid
-  seccion_id            String          @db.VarChar(50)
-  puede_ver             Boolean?        @default(false)
-  puede_crear           Boolean?        @default(false)
-  puede_editar          Boolean?        @default(false)
-  puede_eliminar        Boolean?        @default(false)
-  created_at            DateTime        @default(now())
-  updated_at            DateTime        @default(now()) @updatedAt
-  
-  // Relations
-  empleado              Empleado        @relation(fields: [empleado_id], references: [id], onDelete: Cascade)
-  seccion               SeccionSistema  @relation(fields: [seccion_id], references: [id], onDelete: Cascade)
+  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  empleado_id String?         @db.Uuid
+  seccion_id  String?         @db.VarChar(50)
+  ver         Boolean?        @default(false)
+  editar      Boolean?        @default(false)
+  created_at  DateTime?       @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime?       @default(now()) @updatedAt @db.Timestamptz(6)
+  empleado    Empleado?       @relation(fields: [empleado_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  seccion     SeccionSistema? @relation(fields: [seccion_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([empleado_id, seccion_id])
+  @@index([empleado_id], map: "idx_permisos_empleado_id")
+  @@index([seccion_id], map: "idx_permisos_seccion_id")
   @@map("permisos_empleados")
+  @@schema("public")
 }
 
 model Menu {
-  id                    String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  restaurante_id        String      @db.Uuid
-  titulo                String      @db.VarChar(255)
-  descripcion           String?
-  ingredientes          String?
-  precio                Decimal     @db.Decimal(10, 2)
-  categoria             String      @db.VarChar(100)
-  stock                 Int?
-  imagen_url            String?
-  disponible            Boolean?    @default(true)
-  orden_menu            Int?
-  created_at            DateTime    @default(now())
-  updated_at            DateTime    @default(now()) @updatedAt
-  
-  // Relations
-  restaurante           Restaurante @relation(fields: [restaurante_id], references: [id], onDelete: Cascade)
+  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurante_id String      @db.Uuid
+  titulo         String      @db.VarChar(255)
+  descripcion    String?
+  ingredientes   String?
+  precio         Decimal     @db.Decimal(10, 2)
+  categoria      String      @db.VarChar(100)
+  stock          Int?        @default(0)
+  imagen_url     String?
+  disponible     Boolean?    @default(true)
+  orden_menu     Int?        @default(0)
+  created_at     DateTime    @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  updated_at     DateTime    @default(dbgenerated("timezone('utc'::text, now())")) @updatedAt @db.Timestamptz(6)
+  restaurante    Restaurante @relation(fields: [restaurante_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
+  @@index([categoria], map: "idx_menus_categoria")
+  @@index([disponible], map: "idx_menus_disponible")
+  @@index([orden_menu], map: "idx_menus_orden")
+  @@index([restaurante_id], map: "idx_menus_restaurante_id")
   @@map("menus")
+  @@schema("public")
 }
 
 model InventarioComida {
-  id                    String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  restaurante_id        String      @db.Uuid
-  nombre                String      @db.VarChar(255)
-  categoria             String      @db.VarChar(100)
-  stock                 Decimal     @default(0) @db.Decimal(10, 2)
-  unidad                String      @db.VarChar(50)
-  precio_unidad         Decimal     @db.Decimal(10, 2)
-  fecha_caducidad       DateTime?   @db.Date
-  estado                String      @default("normal") @db.VarChar(20)
-  codigo_barras         String?     @db.VarChar(100)
-  alerta_stock          Int?        @default(5)
-  proveedor             String?     @db.VarChar(255)
-  descripcion           String?
-  ubicacion             String?     @db.VarChar(255)
-  created_at            DateTime    @default(now())
-  updated_at            DateTime    @default(now()) @updatedAt
-  
-  // Relations
-  restaurante           Restaurante @relation(fields: [restaurante_id], references: [id], onDelete: Cascade)
+  id              String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurante_id  String      @db.Uuid
+  nombre          String      @db.VarChar(255)
+  categoria       String      @db.VarChar(100)
+  stock           Decimal     @default(0) @db.Decimal(10, 2)
+  unidad          String      @db.VarChar(50)
+  precio_unidad   Decimal     @db.Decimal(10, 2)
+  fecha_caducidad DateTime?   @db.Date
+  estado          String      @default("normal") @db.VarChar(20)
+  codigo_barras   String?     @db.VarChar(100)
+  alerta_stock    Decimal?    @default(5) @db.Decimal(10, 2)
+  proveedor       String?     @db.VarChar(255)
+  descripcion     String?
+  ubicacion       String?     @db.VarChar(255)
+  created_at      DateTime    @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  updated_at      DateTime    @default(dbgenerated("timezone('utc'::text, now())")) @updatedAt @db.Timestamptz(6)
+  restaurante     Restaurante @relation(fields: [restaurante_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
+  @@index([categoria], map: "idx_inventario_comidas_categoria")
+  @@index([estado], map: "idx_inventario_comidas_estado")
+  @@index([fecha_caducidad], map: "idx_inventario_comidas_fecha_caducidad")
+  @@index([restaurante_id], map: "idx_inventario_comidas_restaurante_id")
   @@map("inventario_comidas")
+  @@schema("public")
 }
 
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
 model InventarioBebida {
   id                    String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   restaurante_id        String      @db.Uuid
   nombre                String      @db.VarChar(255)
   categoria             String      @db.VarChar(100)
-  stock                 Decimal     @default(0) @db.Decimal(10, 2)
+  stock                 Int         @default(0)
   unidad                String      @db.VarChar(50)
   precio_unidad         Decimal     @db.Decimal(10, 2)
   fecha_caducidad       DateTime?   @db.Date
@@ -216,78 +188,467 @@ model InventarioBebida {
   alerta_stock          Int?        @default(5)
   proveedor             String?     @db.VarChar(255)
   descripcion           String?
-  ubicacion             String?     @db.VarChar(255)
-  graduacion_alcoholica Decimal?    @default(0) @db.Decimal(4, 2)
-  volumen               Int?        // en ml
-  created_at            DateTime    @default(now())
-  updated_at            DateTime    @default(now()) @updatedAt
-  
-  // Relations
-  restaurante           Restaurante @relation(fields: [restaurante_id], references: [id], onDelete: Cascade)
+  graduacion_alcoholica Decimal?    @db.Decimal(4, 2)
+  volumen               Int?
+  ubicacion             String?     @db.VarChar(100)
+  created_at            DateTime?   @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime?   @default(now()) @updatedAt @db.Timestamptz(6)
+  restaurante           Restaurante @relation(fields: [restaurante_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
+  @@index([categoria], map: "idx_inventario_bebidas_categoria")
+  @@index([estado], map: "idx_inventario_bebidas_estado")
+  @@index([restaurante_id], map: "idx_inventario_bebidas_restaurante")
   @@map("inventario_bebidas")
+  @@schema("public")
 }
 
 model Pedido {
-  id                    String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  restaurante_id        String      @db.Uuid
-  mesa_numero           Int?
-  cliente_nombre        String?     @db.VarChar(255)
-  items                 Json
-  total                 Decimal     @db.Decimal(10, 2)
-  estado                String      @default("pendiente") @db.VarChar(50)
-  fecha_pedido          DateTime    @default(now())
-  fecha_entrega         DateTime?
-  notas                 String?
-  metodo_pago           String?     @db.VarChar(50)
-  created_at            DateTime    @default(now())
-  updated_at            DateTime    @default(now()) @updatedAt
-  
-  // Relations
-  restaurante           Restaurante @relation(fields: [restaurante_id], references: [id], onDelete: Cascade)
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurante_id String        @db.Uuid
+  caja_id        String        @db.Uuid
+  numero_pedido  Int
+  mesa           Int
+  personas       Int?          @default(1)
+  items          Json
+  subtotal       Decimal       @db.Decimal(10, 2)
+  descuentos     Decimal?      @default(0) @db.Decimal(10, 2)
+  impuestos      Decimal?      @default(0) @db.Decimal(10, 2)
+  total          Decimal       @db.Decimal(10, 2)
+  estado         String?       @default("abierto") @db.VarChar(20)
+  fecha          DateTime      @default(dbgenerated("CURRENT_DATE")) @db.Date
+  hora           DateTime      @default(dbgenerated("CURRENT_TIME")) @db.Time(6)
+  notas          String?
+  created_at     DateTime?     @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime?     @default(now()) @updatedAt @db.Timestamptz(6)
+  cajas          Caja          @relation(fields: [caja_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  restaurante    Restaurante   @relation(fields: [restaurante_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  transacciones  Transaccion[]
 
+  @@index([caja_id], map: "idx_pedidos_caja")
+  @@index([numero_pedido, fecha], map: "idx_pedidos_numero")
+  @@index([restaurante_id, fecha], map: "idx_pedidos_restaurante_fecha")
   @@map("pedidos")
+  @@schema("public")
 }
 
 model Caja {
-  id                    String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  restaurante_id        String      @db.Uuid
-  fecha                 DateTime    @db.Date
-  turno                 String      @db.VarChar(50)
-  empleado_encargado    String      @db.VarChar(255)
-  monto_inicial         Decimal     @default(0) @db.Decimal(10, 2)
-  monto_final           Decimal?    @db.Decimal(10, 2)
-  total_ventas          Decimal?    @default(0) @db.Decimal(10, 2)
-  estado                String      @default("abierta") @db.VarChar(20)
-  notas                 String?
-  created_at            DateTime    @default(now())
-  updated_at            DateTime    @default(now()) @updatedAt
-  
-  // Relations
-  restaurante           Restaurante @relation(fields: [restaurante_id], references: [id], onDelete: Cascade)
-  transacciones         Transaccion[]
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurante_id    String        @db.Uuid
+  empleado_id       String        @db.Uuid
+  fecha_apertura    DateTime      @default(dbgenerated("CURRENT_DATE")) @db.Date
+  hora_apertura     DateTime      @default(dbgenerated("CURRENT_TIME")) @db.Time(6)
+  caja_inicial      Decimal       @default(0) @db.Decimal(10, 2)
+  fecha_cierre      DateTime?     @db.Date
+  hora_cierre       DateTime?     @db.Time(6)
+  caja_final        Decimal?      @db.Decimal(10, 2)
+  efectivo_esperado Decimal?      @default(0) @db.Decimal(10, 2)
+  tarjeta_esperado  Decimal?      @default(0) @db.Decimal(10, 2)
+  otros_esperado    Decimal?      @default(0) @db.Decimal(10, 2)
+  efectivo_real     Decimal?      @db.Decimal(10, 2)
+  tarjeta_real      Decimal?      @db.Decimal(10, 2)
+  otros_real        Decimal?      @db.Decimal(10, 2)
+  diferencia        Decimal?      @db.Decimal(10, 2)
+  total_ventas      Decimal?      @default(0) @db.Decimal(10, 2)
+  total_pedidos     Int?          @default(0)
+  total_personas    Int?          @default(0)
+  estado            String?       @default("abierto") @db.VarChar(20)
+  notas             String?
+  created_at        DateTime?     @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime?     @default(now()) @updatedAt @db.Timestamptz(6)
+  empleados         Empleado      @relation(fields: [empleado_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  restaurante       Restaurante   @relation(fields: [restaurante_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  pedidos           Pedido[]
+  transacciones     Transaccion[]
 
+  @@index([empleado_id], map: "idx_cajas_empleado")
+  @@index([fecha_apertura], map: "idx_cajas_fecha")
+  @@index([restaurante_id, estado], map: "idx_cajas_restaurante_estado")
   @@map("cajas")
+  @@schema("public")
 }
 
 model Transaccion {
-  id                    String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  restaurante_id        String      @db.Uuid
-  caja_id               String?     @db.Uuid
-  tipo                  String      @db.VarChar(50)
-  categoria             String      @db.VarChar(100)
-  descripcion           String
-  monto                 Decimal     @db.Decimal(10, 2)
-  metodo_pago           String      @db.VarChar(50)
-  fecha_transaccion     DateTime    @default(now())
-  referencia            String?     @db.VarChar(255)
-  notas                 String?
-  created_at            DateTime    @default(now())
-  updated_at            DateTime    @default(now()) @updatedAt
-  
-  // Relations
-  restaurante           Restaurante @relation(fields: [restaurante_id], references: [id], onDelete: Cascade)
-  caja                  Caja?       @relation(fields: [caja_id], references: [id], onDelete: SetNull)
+  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurante_id String      @db.Uuid
+  pedido_id      String      @db.Uuid
+  caja_id        String      @db.Uuid
+  metodo_pago    String      @db.VarChar(20)
+  monto          Decimal     @db.Decimal(10, 2)
+  referencia     String?     @db.VarChar(100)
+  notas          String?
+  fecha          DateTime    @default(dbgenerated("CURRENT_DATE")) @db.Date
+  hora           DateTime    @default(dbgenerated("CURRENT_TIME")) @db.Time(6)
+  created_at     DateTime?   @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime?   @default(now()) @updatedAt @db.Timestamptz(6)
+  caja           Caja        @relation(fields: [caja_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  pedidos        Pedido      @relation(fields: [pedido_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  restaurante    Restaurante @relation(fields: [restaurante_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
+  @@index([caja_id], map: "idx_transacciones_caja")
+  @@index([metodo_pago], map: "idx_transacciones_metodo")
+  @@index([pedido_id], map: "idx_transacciones_pedido")
   @@map("transacciones")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model audit_log_entries {
+  instance_id String?   @db.Uuid
+  id          String    @id @db.Uuid
+  payload     Json?     @db.Json
+  created_at  DateTime? @db.Timestamptz(6)
+  ip_address  String    @default("") @db.VarChar(64)
+
+  @@index([instance_id], map: "audit_logs_instance_id_idx")
+  @@schema("auth")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model flow_state {
+  id                     String                @id @db.Uuid
+  user_id                String?               @db.Uuid
+  auth_code              String
+  code_challenge_method  code_challenge_method
+  code_challenge         String
+  provider_type          String
+  provider_access_token  String?
+  provider_refresh_token String?
+  created_at             DateTime?             @db.Timestamptz(6)
+  updated_at             DateTime?             @db.Timestamptz(6)
+  authentication_method  String
+  auth_code_issued_at    DateTime?             @db.Timestamptz(6)
+  saml_relay_states      saml_relay_states[]
+
+  @@index([created_at(sort: Desc)])
+  @@index([auth_code], map: "idx_auth_code")
+  @@index([user_id, authentication_method], map: "idx_user_id_auth_method")
+  @@schema("auth")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model identities {
+  provider_id     String
+  user_id         String    @db.Uuid
+  identity_data   Json
+  provider        String
+  last_sign_in_at DateTime? @db.Timestamptz(6)
+  created_at      DateTime? @db.Timestamptz(6)
+  updated_at      DateTime? @db.Timestamptz(6)
+  email           String?   @default(dbgenerated("lower((identity_data ->> 'email'::text))"))
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  users           users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([provider_id, provider], map: "identities_provider_id_provider_unique")
+  @@index([email])
+  @@index([user_id])
+  @@schema("auth")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model instances {
+  id              String    @id @db.Uuid
+  uuid            String?   @db.Uuid
+  raw_base_config String?
+  created_at      DateTime? @db.Timestamptz(6)
+  updated_at      DateTime? @db.Timestamptz(6)
+
+  @@schema("auth")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model mfa_amr_claims {
+  session_id            String   @db.Uuid
+  created_at            DateTime @db.Timestamptz(6)
+  updated_at            DateTime @db.Timestamptz(6)
+  authentication_method String
+  id                    String   @id(map: "amr_id_pk") @db.Uuid
+  sessions              sessions @relation(fields: [session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([session_id, authentication_method], map: "mfa_amr_claims_session_id_authentication_method_pkey")
+  @@schema("auth")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model mfa_challenges {
+  id                     String      @id @db.Uuid
+  factor_id              String      @db.Uuid
+  created_at             DateTime    @db.Timestamptz(6)
+  verified_at            DateTime?   @db.Timestamptz(6)
+  ip_address             String      @db.Inet
+  otp_code               String?
+  web_authn_session_data Json?
+  mfa_factors            mfa_factors @relation(fields: [factor_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "mfa_challenges_auth_factor_id_fkey")
+
+  @@index([created_at(sort: Desc)], map: "mfa_challenge_created_at_idx")
+  @@schema("auth")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model mfa_factors {
+  id                   String           @id @db.Uuid
+  user_id              String           @db.Uuid
+  friendly_name        String?
+  factor_type          factor_type
+  status               factor_status
+  created_at           DateTime         @db.Timestamptz(6)
+  updated_at           DateTime         @db.Timestamptz(6)
+  secret               String?
+  phone                String?
+  last_challenged_at   DateTime?        @unique @db.Timestamptz(6)
+  web_authn_credential Json?
+  web_authn_aaguid     String?          @db.Uuid
+  mfa_challenges       mfa_challenges[]
+  users                users            @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, phone], map: "unique_phone_factor_per_user")
+  @@index([user_id, created_at], map: "factor_id_created_at_idx")
+  @@index([user_id])
+  @@schema("auth")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model one_time_tokens {
+  id         String              @id @db.Uuid
+  user_id    String              @db.Uuid
+  token_type one_time_token_type
+  token_hash String
+  relates_to String
+  created_at DateTime            @default(now()) @db.Timestamp(6)
+  updated_at DateTime            @default(now()) @db.Timestamp(6)
+  users      users               @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, token_type])
+  @@index([relates_to], map: "one_time_tokens_relates_to_hash_idx", type: Hash)
+  @@index([token_hash], map: "one_time_tokens_token_hash_hash_idx", type: Hash)
+  @@schema("auth")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model refresh_tokens {
+  instance_id String?   @db.Uuid
+  id          BigInt    @id @default(autoincrement())
+  token       String?   @unique(map: "refresh_tokens_token_unique") @db.VarChar(255)
+  user_id     String?   @db.VarChar(255)
+  revoked     Boolean?
+  created_at  DateTime? @db.Timestamptz(6)
+  updated_at  DateTime? @db.Timestamptz(6)
+  parent      String?   @db.VarChar(255)
+  session_id  String?   @db.Uuid
+  sessions    sessions? @relation(fields: [session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([instance_id])
+  @@index([instance_id, user_id])
+  @@index([parent])
+  @@index([session_id, revoked])
+  @@index([updated_at(sort: Desc)])
+  @@schema("auth")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model saml_providers {
+  id                String        @id @db.Uuid
+  sso_provider_id   String        @db.Uuid
+  entity_id         String        @unique
+  metadata_xml      String
+  metadata_url      String?
+  attribute_mapping Json?
+  created_at        DateTime?     @db.Timestamptz(6)
+  updated_at        DateTime?     @db.Timestamptz(6)
+  name_id_format    String?
+  sso_providers     sso_providers @relation(fields: [sso_provider_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([sso_provider_id])
+  @@schema("auth")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model saml_relay_states {
+  id              String        @id @db.Uuid
+  sso_provider_id String        @db.Uuid
+  request_id      String
+  for_email       String?
+  redirect_to     String?
+  created_at      DateTime?     @db.Timestamptz(6)
+  updated_at      DateTime?     @db.Timestamptz(6)
+  flow_state_id   String?       @db.Uuid
+  flow_state      flow_state?   @relation(fields: [flow_state_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  sso_providers   sso_providers @relation(fields: [sso_provider_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([created_at(sort: Desc)])
+  @@index([for_email])
+  @@index([sso_provider_id])
+  @@schema("auth")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model schema_migrations {
+  version String @id @db.VarChar(255)
+
+  @@schema("auth")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model sessions {
+  id             String           @id @db.Uuid
+  user_id        String           @db.Uuid
+  created_at     DateTime?        @db.Timestamptz(6)
+  updated_at     DateTime?        @db.Timestamptz(6)
+  factor_id      String?          @db.Uuid
+  aal            aal_level?
+  not_after      DateTime?        @db.Timestamptz(6)
+  refreshed_at   DateTime?        @db.Timestamp(6)
+  user_agent     String?
+  ip             String?          @db.Inet
+  tag            String?
+  mfa_amr_claims mfa_amr_claims[]
+  refresh_tokens refresh_tokens[]
+  users          users            @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([not_after(sort: Desc)])
+  @@index([user_id])
+  @@index([user_id, created_at], map: "user_id_created_at_idx")
+  @@schema("auth")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model sso_domains {
+  id              String        @id @db.Uuid
+  sso_provider_id String        @db.Uuid
+  domain          String
+  created_at      DateTime?     @db.Timestamptz(6)
+  updated_at      DateTime?     @db.Timestamptz(6)
+  sso_providers   sso_providers @relation(fields: [sso_provider_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([sso_provider_id])
+  @@schema("auth")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model sso_providers {
+  id                String              @id @db.Uuid
+  resource_id       String?
+  created_at        DateTime?           @db.Timestamptz(6)
+  updated_at        DateTime?           @db.Timestamptz(6)
+  disabled          Boolean?
+  saml_providers    saml_providers[]
+  saml_relay_states saml_relay_states[]
+  sso_domains       sso_domains[]
+
+  @@index([resource_id], map: "sso_providers_resource_id_pattern_idx")
+  @@schema("auth")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model users {
+  instance_id                              String?           @db.Uuid
+  id                                       String            @id @db.Uuid
+  aud                                      String?           @db.VarChar(255)
+  role                                     String?           @db.VarChar(255)
+  email                                    String?           @db.VarChar(255)
+  encrypted_password                       String?           @db.VarChar(255)
+  email_confirmed_at                       DateTime?         @db.Timestamptz(6)
+  invited_at                               DateTime?         @db.Timestamptz(6)
+  confirmation_token                       String?           @db.VarChar(255)
+  confirmation_sent_at                     DateTime?         @db.Timestamptz(6)
+  recovery_token                           String?           @db.VarChar(255)
+  recovery_sent_at                         DateTime?         @db.Timestamptz(6)
+  email_change_token_new                   String?           @db.VarChar(255)
+  email_change                             String?           @db.VarChar(255)
+  email_change_sent_at                     DateTime?         @db.Timestamptz(6)
+  last_sign_in_at                          DateTime?         @db.Timestamptz(6)
+  raw_app_meta_data                        Json?
+  raw_user_meta_data                       Json?
+  is_super_admin                           Boolean?
+  created_at                               DateTime?         @db.Timestamptz(6)
+  updated_at                               DateTime?         @db.Timestamptz(6)
+  phone                                    String?           @unique
+  phone_confirmed_at                       DateTime?         @db.Timestamptz(6)
+  phone_change                             String?           @default("")
+  phone_change_token                       String?           @default("") @db.VarChar(255)
+  phone_change_sent_at                     DateTime?         @db.Timestamptz(6)
+  confirmed_at                             DateTime?         @default(dbgenerated("LEAST(email_confirmed_at, phone_confirmed_at)")) @db.Timestamptz(6)
+  email_change_token_current               String?           @default("") @db.VarChar(255)
+  email_change_confirm_status              Int?              @default(0) @db.SmallInt
+  banned_until                             DateTime?         @db.Timestamptz(6)
+  reauthentication_token                   String?           @default("") @db.VarChar(255)
+  reauthentication_sent_at                 DateTime?         @db.Timestamptz(6)
+  is_sso_user                              Boolean           @default(false)
+  deleted_at                               DateTime?         @db.Timestamptz(6)
+  is_anonymous                             Boolean           @default(false)
+  identities                               identities[]
+  mfa_factors                              mfa_factors[]
+  one_time_tokens                          one_time_tokens[]
+  sessions                                 sessions[]
+  empleados_empleados_restaurant_idTousers Empleado[]        @relation("empleados_restaurant_idTousers")
+  empleados                                Empleado[]
+  restaurantes                             Restaurante[]
+
+  @@index([instance_id])
+  @@index([is_anonymous])
+  @@schema("auth")
+}
+
+enum aal_level {
+  aal1
+  aal2
+  aal3
+
+  @@schema("auth")
+}
+
+enum code_challenge_method {
+  s256
+  plain
+
+  @@schema("auth")
+}
+
+enum factor_status {
+  unverified
+  verified
+
+  @@schema("auth")
+}
+
+enum factor_type {
+  totp
+  webauthn
+  phone
+
+  @@schema("auth")
+}
+
+enum one_time_token_type {
+  confirmation_token
+  reauthentication_token
+  recovery_token
+  email_change_token_new
+  email_change_token_current
+  phone_change_token
+
+  @@schema("auth")
 }
