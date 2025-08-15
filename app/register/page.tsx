@@ -148,6 +148,8 @@ export default function RegisterPage() {
             <Alert>
               <AlertDescription>
                 Por favor revisa tu bandeja de entrada y haz clic en el enlace de confirmación para activar tu cuenta.
+                Una vez confirmado, podrás acceder al sistema y se creará automáticamente tu perfil de empleado
+                si existe un restaurante con tu dominio de email.
               </AlertDescription>
             </Alert>
 

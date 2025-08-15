@@ -63,7 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   // Función para obtener datos del empleado
-  const fetchEmpleado = async (userId: string) => {
+  const fetchEmpleado = async (userId: string, userEmail?: string) => {
     try {
       console.log('Fetching empleado for user:', userId)
       
@@ -82,7 +82,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Si no existe empleado asociado, buscar empleados con el mismo email
-      const userEmail = user?.email
       if (userEmail) {
         console.log('No empleado found, searching by email:', userEmail)
         
@@ -90,14 +89,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         if (existingEmpleados && existingEmpleados.length > 0) {
           // Si encontramos empleados con el mismo email, asociar con el primero activo
-          const activeEmpleado = existingEmpleados.find(emp => emp.activo)
+          const activeEmpleado = existingEmpleados.find(emp => emp.estado === 'Activo')
           if (activeEmpleado) {
             console.log('Found existing empleado, associating with user:', activeEmpleado.nombre)
             
             const { success } = await associateUserWithEmpleado(userId, activeEmpleado.id)
             if (success) {
               // Recargar empleado después de asociar
-              await fetchEmpleado(userId)
+              await fetchEmpleado(userId, userEmail)
               return
             }
           }
@@ -111,7 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.log('Creating new empleado for user in restaurant:', restaurantes[0].nombre)
           
           const { empleado: newEmpleado } = await createEmpleadoForUser({
-            nombre: user?.user_metadata?.nombre || userEmail.split('@')[0],
+            nombre: userEmail.split('@')[0], // Usar parte local del email como nombre por defecto
             email: userEmail,
             user_id: userId,
             restaurante_id: restaurantes[0].id
@@ -158,7 +157,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (data.user) {
         setUser(data.user)
-        await fetchEmpleado(data.user.id)
+        await fetchEmpleado(data.user.id, data.user.email || undefined)
       }
     } catch (error) {
       console.error("Error in signIn:", error)
@@ -241,7 +240,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (session?.user && mounted) {
           setUser(session.user)
-          await fetchEmpleado(session.user.id)
+          await fetchEmpleado(session.user.id, session.user.email || undefined)
         }
       } catch (error) {
         console.error("Error in getInitialSession:", error)
@@ -264,7 +263,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (session?.user) {
         setUser(session.user)
-        await fetchEmpleado(session.user.id)
+        await fetchEmpleado(session.user.id, session.user.email || undefined)
       } else {
         setUser(null)
         setEmpleado(null)

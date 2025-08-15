@@ -93,18 +93,18 @@ export async function findEmpleadoByUserId(userId: string): Promise<{
 
     const empleado: Empleado = {
       id: empleadoData.id,
-      nombre: empleadoData.nombre,
-      email: empleadoData.email,
-      cargo: empleadoData.cargo,
-      telefono: empleadoData.contacto,
-      fecha_contratacion: empleadoData.created_at,
-      salario: empleadoData.salario,
+      nombre: empleadoData.nombre || 'Usuario',
+      email: empleadoData.email || '',
+      cargo: empleadoData.cargo || 'Empleado',
+      telefono: empleadoData.contacto || undefined,
+      fecha_contratacion: empleadoData.created_at || new Date().toISOString(),
+      salario: empleadoData.salario || undefined,
       activo: empleadoData.estado === 'Activo',
       permisos,
-      restaurante_id: empleadoData.restaurante_id,
-      user_id: empleadoData.user_id,
-      created_at: empleadoData.created_at,
-      updated_at: empleadoData.updated_at
+      restaurante_id: empleadoData.restaurante_id || '',
+      user_id: empleadoData.user_id || '',
+      created_at: empleadoData.created_at || new Date().toISOString(),
+      updated_at: empleadoData.updated_at || new Date().toISOString()
     }
 
     return {
