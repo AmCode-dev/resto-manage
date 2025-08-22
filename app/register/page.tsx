@@ -1,71 +1,71 @@
-"use client"
+'use client';
 
-import type React from "react"
+import type React from 'react';
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Eye, EyeOff, Loader2, CheckCircle } from "lucide-react"
-import { useAuth } from "@/hooks/use-auth"
-import { suggestCargoFromEmail } from "@/lib/auth-utils"
-import Link from "next/link"
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Eye, EyeOff, Loader2, CheckCircle } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
+import { suggestCargoFromEmail } from '@/lib/auth-utils';
+import Link from 'next/link';
 
 export default function RegisterPage() {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [nombre, setNombre] = useState("")
-  const [cargo, setCargo] = useState("")
-  const [telefono, setTelefono] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
-  const [success, setSuccess] = useState(false)
-  const router = useRouter()
-  const { signUp, user } = useAuth()
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [nombre, setNombre] = useState('');
+  const [cargo, setCargo] = useState('');
+  const [telefono, setTelefono] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+  const router = useRouter();
+  const { signUp, user } = useAuth();
 
   // Redirigir si ya está autenticado
   useEffect(() => {
     if (user) {
-      router.push("/dashboard")
+      router.push('/dashboard');
     }
-  }, [user, router])
+  }, [user, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError("")
-    setSuccess(false)
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setSuccess(false);
 
     // Validaciones
     if (!email || !password || !confirmPassword || !nombre) {
-      setError("Por favor complete los campos obligatorios")
-      setLoading(false)
-      return
+      setError('Por favor complete los campos obligatorios');
+      setLoading(false);
+      return;
     }
 
-    if (!email.includes("@")) {
-      setError("Por favor ingrese un email válido")
-      setLoading(false)
-      return
+    if (!email.includes('@')) {
+      setError('Por favor ingrese un email válido');
+      setLoading(false);
+      return;
     }
 
     if (password.length < 6) {
-      setError("La contraseña debe tener al menos 6 caracteres")
-      setLoading(false)
-      return
+      setError('La contraseña debe tener al menos 6 caracteres');
+      setLoading(false);
+      return;
     }
 
     if (password !== confirmPassword) {
-      setError("Las contraseñas no coinciden")
-      setLoading(false)
-      return
+      setError('Las contraseñas no coinciden');
+      setLoading(false);
+      return;
     }
 
     try {
@@ -73,63 +73,63 @@ export default function RegisterPage() {
         nombre,
         cargo: cargo || undefined,
         telefono: telefono || undefined,
-      })
+      });
 
-      setSuccess(true)
-      console.log("Registration successful")
+      setSuccess(true);
+      console.log('Registration successful');
     } catch (error: any) {
-      console.error("Register exception:", error)
-      
+      console.error('Register exception:', error);
+
       // Manejar diferentes tipos de errores
-      if (error.message?.includes("User already registered")) {
-        setError("Este email ya está registrado. Intenta iniciar sesión")
-      } else if (error.message?.includes("Password should be at least")) {
-        setError("La contraseña debe tener al menos 6 caracteres")
-      } else if (error.message?.includes("Unable to validate email")) {
-        setError("Email inválido")
+      if (error.message?.includes('User already registered')) {
+        setError('Este email ya está registrado. Intenta iniciar sesión');
+      } else if (error.message?.includes('Password should be at least')) {
+        setError('La contraseña debe tener al menos 6 caracteres');
+      } else if (error.message?.includes('Unable to validate email')) {
+        setError('Email inválido');
       } else {
-        setError(error.message || "Error al crear la cuenta")
+        setError(error.message || 'Error al crear la cuenta');
       }
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   // Sugerir cargo basado en email
   useEffect(() => {
     if (email && !cargo) {
-      const suggestedCargo = suggestCargoFromEmail(email)
+      const suggestedCargo = suggestCargoFromEmail(email);
       if (suggestedCargo !== 'Empleado') {
-        setCargo(suggestedCargo)
+        setCargo(suggestedCargo);
       }
     }
-  }, [email, cargo])
+  }, [email, cargo]);
 
   // Limpiar errores cuando el usuario empiece a escribir
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setEmail(e.target.value)
-    if (error) setError("")
-  }
+    setEmail(e.target.value);
+    if (error) setError('');
+  };
 
   const handleNombreChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setNombre(e.target.value)
-    if (error) setError("")
-  }
+    setNombre(e.target.value);
+    if (error) setError('');
+  };
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setPassword(e.target.value)
-    if (error) setError("")
-  }
+    setPassword(e.target.value);
+    if (error) setError('');
+  };
 
   const handleConfirmPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setConfirmPassword(e.target.value)
-    if (error) setError("")
-  }
+    setConfirmPassword(e.target.value);
+    if (error) setError('');
+  };
 
   const handleTelefonoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setTelefono(e.target.value)
-    if (error) setError("")
-  }
+    setTelefono(e.target.value);
+    if (error) setError('');
+  };
 
   if (success) {
     return (
@@ -163,7 +163,7 @@ export default function RegisterPage() {
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
 
   return (
@@ -172,7 +172,7 @@ export default function RegisterPage() {
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">Crear Cuenta</CardTitle>
           <CardDescription className="text-center">
-            Regístrate en RestoManage como empleado. Si ya existe un restaurante con tu dominio de email, 
+            Regístrate en RestoManage como empleado. Si ya existe un restaurante con tu dominio de email,
             serás asociado automáticamente.
           </CardDescription>
         </CardHeader>
@@ -248,7 +248,7 @@ export default function RegisterPage() {
               <div className="relative">
                 <Input
                   id="password"
-                  type={showPassword ? "text" : "password"}
+                  type={showPassword ? 'text' : 'password'}
                   placeholder="Mínimo 6 caracteres"
                   value={password}
                   onChange={handlePasswordChange}
@@ -278,7 +278,7 @@ export default function RegisterPage() {
               <div className="relative">
                 <Input
                   id="confirmPassword"
-                  type={showConfirmPassword ? "text" : "password"}
+                  type={showConfirmPassword ? 'text' : 'password'}
                   placeholder="Repite tu contraseña"
                   value={confirmPassword}
                   onChange={handleConfirmPasswordChange}
@@ -310,7 +310,7 @@ export default function RegisterPage() {
                   Creando cuenta...
                 </>
               ) : (
-                "Crear Cuenta"
+                'Crear Cuenta'
               )}
             </Button>
           </form>
@@ -324,5 +324,5 @@ export default function RegisterPage() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
